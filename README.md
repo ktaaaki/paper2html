@@ -1,10 +1,8 @@
 # paper2html
 
-[![pypi](https://img.shields.io/pypi/v/paper2html.svg)](https://pypi.python.org/pypi/paper2html)
-[![License: GPL](https://img.shields.io/badge/License-GPL-yellow.svg)](https://opensource.org/licenses/GPL)
-[![Python Version](https://img.shields.io/pypi/pyversions/Django.svg)](https://github.com/ktaaaki/paper2html)
-[![TravisCI](https://travis-ci.org/masa-su/paper2html.svg?branch=master)](https://github.com/ktaaaki/paper2html)
-[![Downloads](https://pepy.tech/badge/paper2html)](https://pepy.tech/project/paper2html)
+[![License: AGPL](https://img.shields.io/badge/license-AGPL-blue)](https://opensource.org/licenses/AGPL-3.0)
+[![Python Version](https://img.shields.io/badge/python-3.5-blue)](https://github.com/ktaaaki/paper2html)
+[![Platform](https://img.shields.io/badge/platform-macos-yellow)](https://github.com/ktaaaki/paper2html)
 
 It will convert paper pdf to html.
 ２段組の論文をhtml表示するツールです．
@@ -46,4 +44,5 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 設定しないと`Operation is not permitted`のエラーが出るので注意．
 
 ※ `~/paper2html/downloads`のファイルは容量制限を超えると自動削除されるので注意．
-容量はautomatorから変更可能（clean_downloadsの2番めの引数，デフォルトで1GB）
+容量はautomatorから変更可能（clean_downloadsの2番めの引数，デフォルトで1GB）．
+自動削除なしVer.は`open_downloaded.workflow`．
