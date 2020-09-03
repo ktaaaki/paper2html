@@ -32,7 +32,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'pdf2image',
-        'pdfminer.six',
+        'pdfminer.six >= 20200726',
         'fire',
         'pillow',
     ],

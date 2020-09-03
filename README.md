@@ -15,7 +15,7 @@ It will convert a pdf paper to html pages. Only the format of single or double c
 > git clone https://github.com/ktaaaki/paper2html.git
 > brew install mupdf-tools
 > conda install -c conda-forge poppler
-> pip install -e .
+> pip install -e paper2html
 ```
 
 ## 使用方法

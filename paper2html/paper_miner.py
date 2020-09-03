@@ -7,7 +7,7 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.layout import LAParams
-from .paper import Paper, PaperItemType, PaperItem, PaperPage
+from .paper import Paper, PaperItemType, PaperItem, PaperPage, unify_bboxes
 
 DEBUG_MODE = False
 
@@ -181,9 +181,37 @@ class PaperReader:
         else:
             item_type = PaperItemType.TextBox
             separated = self._check_separated(textbox)
+
+        for paragraph in self._split_by_indent(textbox, item_type, separated):
+            page.items.append(paragraph)
+
+    def _split_by_indent(self, textbox, item_type, separated):
         bbox = textbox.bbox
-        # TODO: 字下げで定義される段落に対応する
-        page.items.append(PaperItem(bbox, textbox.get_text(), item_type, separated))
+        split_lines = [[]]
+        lines = list(textbox)
+
+        def is_indented(line):
+            return line.bbox[0] - bbox[0] > self.line_height
+        for i, line in enumerate(lines):
+            if is_indented(line):
+                if not i + 1 < len(lines):
+                    split_lines.append([])
+                elif not is_indented(lines[i + 1]):
+                    split_lines.append([])
+            split_lines[-1].append(line)
+        if len(split_lines) == 0:
+            raise ValueError('empty textbox.')
+        if len(split_lines[0]) == 0:
+            split_lines.pop(0)
+        results = []
+        for lines in split_lines:
+            bbox = unify_bboxes([line.bbox for line in lines])
+            text = ''.join([line.get_text() for line in lines])
+            results.append(PaperItem(bbox, text, item_type, True))
+        if len(results) == 0:
+            raise ValueError('empty textbox.')
+        results[0].separated = separated
+        return results
 
     def render_shape(self, page, item):
         bbox = item.bbox

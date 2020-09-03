@@ -33,6 +33,16 @@ def format4gt2(txt):
     return result + "\n"
 
 
+def unify_bboxes(bboxes):
+    bbox = [math.inf, math.inf, -math.inf, -math.inf]
+    for item_bbox in bboxes:
+        bbox[0] = min(bbox[0], item_bbox[0])
+        bbox[1] = min(bbox[1], item_bbox[1])
+        bbox[2] = max(bbox[2], item_bbox[2])
+        bbox[3] = max(bbox[3], item_bbox[3])
+    return bbox
+
+
 class PageAddress(IntEnum):
     Head = 0
     Left = 1
@@ -192,7 +202,7 @@ class PaperPage:
                 continue
             if self._overlaps_collided(overlaps, unified_bbox, other, line_margin):
                 overlaps.append(other)
-                unified_bbox = self._unify_bboxes((unified_bbox, other.bbox))
+                unified_bbox = unify_bboxes((unified_bbox, other.bbox))
                 remove_ids.insert(0, i)
         for i in remove_ids:
             self.sorted_items.pop(i)
@@ -204,7 +214,7 @@ class PaperPage:
                 continue
             if self._overlaps_collided(overlaps, unified_bbox, other, line_margin):
                 overlaps.append(other)
-                unified_bbox = self._unify_bboxes((unified_bbox, other.bbox))
+                unified_bbox = unify_bboxes((unified_bbox, other.bbox))
                 remove_ids.append(i)
         for i in remove_ids:
             self.sorted_items.pop(i)
@@ -228,7 +238,7 @@ class PaperPage:
         text = ''.join(texts)
         # 統合が終わったあとに最小限のbboxに整形する
         # TODO: 数式の一部が切れる
-        bbox = self._unify_bboxes(item.bbox for item in overlaps)
+        bbox = unify_bboxes(item.bbox for item in overlaps)
         result = PaperItem(bbox, text, PaperItemType.Paragraph, separated)
         return result
 
@@ -269,17 +279,6 @@ class PaperPage:
         split_type = {PaperItemType.Figure, PaperItemType.Part_of_Object,
                       PaperItemType.Shape, PaperItemType.Splitter}
         return item_type in split_type
-
-    def _unify_bboxes(self, bboxes):
-        bbox = [math.inf, math.inf, -math.inf, -math.inf]
-        for item_bbox in bboxes:
-            bbox[0] = min(bbox[0], item_bbox[0])
-            bbox[1] = min(bbox[1], item_bbox[1])
-            bbox[2] = max(bbox[2], item_bbox[2])
-            bbox[3] = max(bbox[3], item_bbox[3])
-        # if address:
-        #     bbox = self._get_inflated_bbox(bbox, address)
-        return bbox
 
     def _recognize_items(self):
         image = Image.open(pjoin(self.image_dir, sorted(os.listdir(self.image_dir))[self.page_n]))
