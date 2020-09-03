@@ -24,8 +24,10 @@ setup(
     license='AGPL',
     classifiers=[
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.7',
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
         'Operating System :: MacOS :: MacOS X',
+        'Operating System :: POSIX :: Linux',
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
