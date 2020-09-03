@@ -4,14 +4,15 @@
 [![Python Version](https://img.shields.io/badge/python-3.5-blue)](https://github.com/ktaaaki/paper2html)
 [![Platform](https://img.shields.io/badge/platform-macos-yellow)](https://github.com/ktaaaki/paper2html)
 
-It will convert paper pdf to html.
+It will convert a pdf paper to html pages. Only the format of single or double column is supported.
+
 ２段組の論文をhtml表示するツールです．
 
 # 導入
 ## paper2htmlのインストール
 依存ライブラリとpaper2htmlのインストール
 ```
-> git clone <url>
+> git clone https://github.com/ktaaaki/paper2html.git
 > brew install mupdf-tools
 > conda install -c conda-forge poppler
 > pip install -e .
@@ -25,8 +26,8 @@ ipythonから
 ```
 右クリックメニューまたは自動化から
 
-- 翻訳したいpdfを選択して，テキストファイルとして開く，を選択（右クリック＞クイックアクション，からもいける）
-- `~/paper2html/downloads`にブラウザからpdfを保存する（自動的に翻訳が起動）
+- 変換したいpdfを選択して，`open pdf as html`を選択する
+- `~/paper2html/downloads`にブラウザからpdfを保存する（自動的に変換が起動）
 
 ## ショートカットと右クリックメニューの作成（mac用）
 クローンしたソースフォルダから`paper2html/open_downloaded_cache.workflow`と
