@@ -1,0 +1,3 @@
+*.pdf
+*.egg-info
+tests/sample_files
