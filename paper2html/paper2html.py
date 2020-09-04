@@ -104,7 +104,6 @@ def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: s
 
     for url in urls:
         open_by_browser(url, browser_path)
-        message_for_automator(url)
 
 
 if __name__ == '__main__':
