@@ -1,3 +1,4 @@
 *.pdf
 *.egg-info
 tests/sample_files
+/paper2html/clean_downloads.py

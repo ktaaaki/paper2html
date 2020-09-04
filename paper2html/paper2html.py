@@ -9,26 +9,42 @@ from paper2html.paper import PaperPage, Paper
 from paper2html.paper_miner import read_by_extended_pdfminer
 
 
-def init_working_dir(base_dir=None):
-    if not base_dir:
-        base_dir = pjoin(os.environ['HOME'], 'paper2html')
-    fixed_dir = pjoin(base_dir, 'fixed_pdf')
-    output_dir = pjoin(base_dir, 'output')
-    image_dir = pjoin(base_dir, 'original_images')
-    crop_dir = pjoin(base_dir, 'crops')
-    layout_dir = pjoin(base_dir, 'layout')
+def _get_unique_dirname(dirname):
+    i = 1
+    if not os.path.exists(dirname):
+        return dirname
+    dirname = dirname + '-0'
+    while os.path.exists(dirname):
+        dirname = dirname[:-len(dirname.split('-')[-1])] + str(i)
+        i += 1
+    return dirname
+
+
+def init_working_dir(working_dir, pdf_filename):
+    base_dir, pdf_name = os.path.split(pdf_filename)
+    pdf_name, _ = os.path.splitext(pdf_name)
+    if not working_dir:
+        working_dir = base_dir
+
+    output_dir = _get_unique_dirname(pjoin(working_dir, pdf_name))
+    resource_dir = pjoin(output_dir, 'resources')
+    temp_dir = pjoin(output_dir, 'temp')
+
+    crop_dir = pjoin(resource_dir, 'crops')
+    fixed_dir = pjoin(temp_dir, 'fixed_pdf')
+    image_dir = pjoin(temp_dir, 'original_images')
+    layout_dir = pjoin(temp_dir, 'layout')
+
     Paper.output_dir = output_dir
+    Paper.resource_dir = resource_dir
     Paper.layout_dir = layout_dir
     PaperPage.image_dir = image_dir
     PaperPage.crop_dir = crop_dir
 
-    if not os.path.exists(base_dir):
-        os.mkdir(base_dir)
-    for dir_name in (output_dir, image_dir, crop_dir, layout_dir, fixed_dir):
-        if os.path.exists(dir_name):
-            rmtree(dir_name)
+    for dir_name in (output_dir, resource_dir, temp_dir,
+                     crop_dir, fixed_dir, image_dir, layout_dir):
         os.mkdir(dir_name)
-    return fixed_dir, image_dir
+    return fixed_dir, image_dir, temp_dir
 
 
 def open_by_browser(filename, browser_path=None):
@@ -41,26 +57,45 @@ def open_by_browser(filename, browser_path=None):
         webbrowser.open(url)
 
 
-def clean_pdf(pdf_filename, output_dir):
+def clean_pdf(pdf_filename, working_dir):
+    """
+    Fix broken pdf.
+    @param pdf_filename:
+        The target pdf file.
+    @param working_dir:
+        The directory for the fixed pdf.
+    @return:
+        The fixed pdf file.
+    """
     import subprocess
     _, base_name = os.path.split(pdf_filename)
-    new_pdf_filename = pjoin(output_dir, base_name)
+    new_pdf_filename = pjoin(working_dir, base_name)
     subprocess.run(['mutool', 'clean', pdf_filename, new_pdf_filename])
     return new_pdf_filename
 
 
-def open_paper_htmls(pdf_filename, working_dir=None, browser_path=None):
+def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: str = None, verbose: bool = False):
     """
-    処理の流れ：
-        破損したpdfを修復
-        pdf2imageでpdfの画像取得
-        pdfminerに解析結果とともに返してもらう
-        解析結果であるPaperのshow_layoutsとget_htmlsを呼び出して結果を得る
+    Open generated paper htmls from a pdf file with a browser.
+    @param pdf_filename:
+        The target pdf file.
+    @param working_dir:
+        The working directory contains output directory and html files.
+        Default is the same directory as pdf_filename.
+    @param browser_path:
+        The browser to open the file with.
+    @param verbose:
+        Whether to output files which indicate the visual recognition process.
     """
-    fixed_dir, image_dir = init_working_dir(working_dir)
+    _, ext = os.path.splitext(pdf_filename)
+    if ext != '.pdf':
+        raise ValueError('Only pdf files are supported')
+    fixed_dir, image_dir, temp_dir = init_working_dir(working_dir, pdf_filename)
     pdf_filename = clean_pdf(pdf_filename, fixed_dir)
     pdf2image.convert_from_path(pdf_filename, output_folder=image_dir, output_file='pdf', paths_only=True)
-    urls = read_by_extended_pdfminer(pdf_filename)
+    urls = read_by_extended_pdfminer(pdf_filename, verbose)
+    if not verbose:
+        rmtree(temp_dir)
 
     for url in urls:
         open_by_browser(url, browser_path)

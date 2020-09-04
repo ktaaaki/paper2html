@@ -9,12 +9,10 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.layout import LAParams
 from .paper import Paper, PaperItemType, PaperItem, PaperPage, unify_bboxes
 
-DEBUG_MODE = False
 
-
-def read_by_extended_pdfminer(pdf_filename):
+def read_by_extended_pdfminer(pdf_filename, verbose=False):
     paper = PaperReader(pdf_filename).read()
-    if DEBUG_MODE:
+    if verbose:
         paper.show_layouts()
 
     _, pdf_name = os.path.split(pdf_filename)

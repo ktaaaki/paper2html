@@ -60,7 +60,11 @@
 				<dict>
 					<key>COMMAND_STRING</key>
 					<string>source .zshrc
-env LC_ALL=en_US.UTF-8 python -c "from paper2html import open_paper_htmls; open_paper_htmls('${1}')"
+case "${1}" in
+*.pdf )
+	env LC_ALL=en_US.UTF-8 python -c "from paper2html import open_paper_htmls; open_paper_htmls('${1}')"
+	;;
+esac
 </string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
