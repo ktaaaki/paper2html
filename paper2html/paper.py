@@ -513,7 +513,8 @@ class Paper:
     output_dir = None
     resource_dir = None
     layout_dir = None
-    n_div_paragraph = 200
+    # n_div_paragraph = 200
+    n_div_paragraph = math.inf
 
     def __init__(self, line_height, line_margin):
         self.pages = []
@@ -571,6 +572,9 @@ class Paper:
             self._arrange_paragraphs()
 
         def chunks(list, n):
+            if n == math.inf:
+                yield list
+                return
             for i in range(0, len(list), n):
                 yield list[i:i + n]
         javascript = '''

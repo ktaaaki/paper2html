@@ -3,6 +3,7 @@ import os
 from os.path import join as pjoin
 from shutil import rmtree
 import webbrowser
+from urllib.parse import quote
 import fire
 import pdf2image
 from paper2html.paper import PaperPage, Paper
@@ -49,7 +50,7 @@ def init_working_dir(working_dir, pdf_filename):
 
 def open_by_browser(filename, browser_path=None):
     full_path = os.path.abspath(filename)
-    url = "file://" + full_path
+    url = "file://" + quote(full_path)
     if browser_path:
         browser = webbrowser.get('"{}" %s'.format(browser_path))
         browser.open(url)
@@ -72,6 +73,10 @@ def clean_pdf(pdf_filename, working_dir):
     new_pdf_filename = pjoin(working_dir, base_name)
     subprocess.run(['mutool', 'clean', pdf_filename, new_pdf_filename])
     return new_pdf_filename
+
+
+def message_for_automator(msg):
+    webbrowser.open("https://www.google.com/search?q={}".format(quote(msg)))
 
 
 def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: str = None, verbose: bool = False):
@@ -99,6 +104,7 @@ def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: s
 
     for url in urls:
         open_by_browser(url, browser_path)
+        message_for_automator(url)
 
 
 if __name__ == '__main__':
