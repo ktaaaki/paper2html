@@ -100,11 +100,18 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 sudo apt install inotify-tools
 ```
 `paper2html/open_downloaded.sh`の`DOWNLOADS_DIR`を設定した後，
-以下のスクリプトを実行すると，ディレクトリが監視されます．
+以下のコマンドを実行すると，ディレクトリが監視されます．
 ```
 bash paper2html/open_downloaded.sh
 ```
 このディレクトリにダウンロードを行えば自動的にブラウザが起動します．
+
+### フォルダ監視スクリプト（windows用）
+`paper2html/open_downloaded.ps1`の`"C:\MyDownloads"`を適当なフォルダパスに書き換えた後，
+`paper2html/open_downloaded.ps1`の右クリックメニュー＞`power shellを実行`を選択すると，
+フォルダが監視されます．
+
+このフォルダにダウンロードを行えば自動的にブラウザが起動します．
 
 ## トラブルシューティング
 `which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
