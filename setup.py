@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 
 def get_version(*file_paths):
-    with open(pjoin(os.path.dirname(__file__), *file_paths)) as fp:
+    with open(pjoin(os.path.dirname(__file__), *file_paths), encoding="utf-8_sig") as fp:
         version_file = fp.read()
     version_match = re.search(r"^__version__ = '([^']*)'", version_file, re.M)
     if version_match:
@@ -13,7 +13,7 @@ def get_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
-with open("README.md", "r") as f:
+with open("README.md", "r", encoding="utf-8_sig") as f:
     long_description = f.read()
 
 
@@ -26,6 +26,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.7',
         'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+        'Operating System :: Microsoft :: Windows :: Windows 10',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: POSIX :: Linux',
     ],

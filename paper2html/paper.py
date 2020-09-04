@@ -577,7 +577,7 @@ class Paper:
                 return
             for i in range(0, len(list), n):
                 yield list[i:i + n]
-        javascript = '''
+        javascript = r'''
         <script language="javascript" type="text/javascript">
             const Zoom = function(rate) {
                 for (let i = 0; i < document.images.length; i++) {
@@ -601,7 +601,7 @@ class Paper:
                   const delta_rate = (center_ - rect.top) / rect.height;
                   const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
                   const delta_ = delta_rate * img_line.offsetHeight;
-                  leftw.scrollTo(img_line.offsetLeft, img_line.offsetTop + delta_ - center_);
+                  leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
                   break;
                 }
               }
@@ -652,7 +652,7 @@ class Paper:
         '''
         css_filename = pjoin(self.resource_dir, 'stylesheet.css')
         css_rel_path = pjoin('resources', 'stylesheet.css')
-        with open(css_filename, 'w') as f:
+        with open(css_filename, 'w', encoding="utf-8_sig") as f:
             f.write(css_content)
         html_files = []
         for i, page in enumerate(html_pages):
@@ -671,9 +671,10 @@ class Paper:
                       <header style="position: fixed;">
                         <input type="button" value="30%" onclick="Zoom(0.33);"/>
                         <input type="button" value="50%" onclick="Zoom(0.5);"/>
-                        <input type="button" value="75%" onclick="Zoom(0.75);"/>
-                        <input type="button" value="100%" onclick="Zoom(1);"/><br />
-                      </header><br /><br />
+                        <input type="button" value="65%" onclick="Zoom(0.65);"/>
+                        <input type="button" value="100%" onclick="Zoom(1);"/>
+                        <a href="{}">[Original PDF]</a>
+                      </header><br />
                       <div id="left">
                           {}
                       </div>
@@ -689,8 +690,9 @@ class Paper:
 
             output_filename = pdf_name + '_%d.html' % i
             output_path = pjoin(self.output_dir, output_filename)
-            with open(output_path, 'w') as f:
-                f.write(top_html_template.format(css_rel_path, pdf_name, img_c, txt_c, javascript))
+            with open(output_path, 'w', encoding="utf-8_sig") as f:
+                original_link = self.output_dir + '.pdf'
+                f.write(top_html_template.format(css_rel_path, pdf_name, original_link, img_c, txt_c, javascript))
             html_files.append(output_path)
         return html_files
 

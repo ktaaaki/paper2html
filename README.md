@@ -2,26 +2,36 @@
 
 [![License: AGPL](https://img.shields.io/badge/license-AGPL-blue)](https://opensource.org/licenses/AGPL-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.5|3.7-blue)](https://github.com/ktaaaki/paper2html)
-[![Platform](https://img.shields.io/badge/platform-macos|linux-yellow)](https://github.com/ktaaaki/paper2html)
+[![Platform](https://img.shields.io/badge/platform-windows|macos|linux-yellow)](https://github.com/ktaaaki/paper2html)
 
 It will convert a pdf paper to html pages. Only the format of single or double column is supported.
 
 ２段組の論文をhtml表示するツールです．
 
-## インストール
-外部ツールとして，popplerとmu-pdfに依存しているので，環境に合わせてインストールしてください．
+## 依存環境のインストール
+popplerとmu-pdfに依存しているので，環境に合わせてインストールしてください．
+
+### windowsの場合
+`http://blog.alivate.com.au/poppler-windows/`
+
+`https://mupdf.com/downloads/`
+
+からpopplerとmupdfをダウンロード＋解凍して，環境変数にexeファイルのある場所のPathを通してください．
+
 ### ubuntuの場合
 ```
-> git clone https://github.com/ktaaaki/paper2html.git
 > sudo apt install mupdf mupdf-tools poppler-utils poppler-data
-> pip install -e paper2html
 ```
 ### macの場合
 brew + pyenv + condaの環境でのみ動作確認しています．
 ```
-> git clone https://github.com/ktaaaki/paper2html.git
 > brew install mupdf-tools
 > conda install -c conda-forge poppler
+```
+## 本体のインストール
+以下のコマンドで，作業ディレクトリにクローンしたpaper2htmlをインストールできます．
+```
+> git clone https://github.com/ktaaaki/paper2html.git
 > pip install -e paper2html
 ```
 
@@ -30,7 +40,7 @@ brew + pyenv + condaの環境でのみ動作確認しています．
 
 pythonから
 ```
-> python paper2html/main.py path-to-paper-file.pdf
+> python paper2html/main.py "path-to-paper-file.pdf"
 ```
 ipythonから
 ```
@@ -43,6 +53,17 @@ macでは下記のインストールを済ませれば，右クリックメニ�
 - `~/paper2html/downloads`にブラウザからpdfを保存する（自動的に変換が起動）
 
 ことで利用可能です．
+
+開くブラウザは以下のように指定可能です．
+```
+> python paper2html/main.py "path-to-paper-file.pdf" --browser_path="/path/to/browser"
+```
+
+また，pdfからhtmlへの変換のみも行うことができます．
+```
+>>> import paper2html
+>>> paper2html.paper2html("path-to-paper-file or directory")
+```
 
 ## フォルダアクションと右クリックメニューの作成（mac用）
 macではさらに操作を短縮するために，ワークフローが利用できます．
@@ -74,5 +95,5 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 サービスの実行を押し， ＋でスクリプトを追加，`open_downloaded.workflow`を選択し，関連付ける，を選択すれば完了です．
 
 ## トラブルシューティング
-`which pdfinfo`とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
+`which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
 popplerのインストール場所を確認してください．

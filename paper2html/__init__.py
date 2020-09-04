@@ -1,6 +1,6 @@
-from .paper2html import open_paper_htmls, message_for_automator
+from .commands import open_paper_htmls, message_for_automator, paper2html
 
 name = "paper2html"
-__version__ = '0.1.2'
-__all__ = ['open_paper_htmls', 'message_for_automator']
+__version__ = '0.1.3'
+__all__ = ['open_paper_htmls', 'message_for_automator', 'paper2html']
 
