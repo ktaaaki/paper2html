@@ -511,6 +511,7 @@ class Paper:
     pdfminerの解析結果を表すクラス．
     """
     output_dir = None
+    resource_dir = None
     layout_dir = None
     n_div_paragraph = 200
 
@@ -547,30 +548,12 @@ class Paper:
         eng_txt = format4gt2("".join([item.text for item in paragraph]))
         return eng_txt
 
-    def get_text(self):
-        if not self.arranged_paragraphs:
-            self._arrange_paragraphs()
-        result = "".join([self._paragraph2txt(paragraph) for paragraph in self.arranged_paragraphs])
-        return result
-
-    def _paragraph2markdown(self, paragraph):
-        if len(paragraph) == 0:
-            return ""
-        if paragraph[0].type == PaperItemType.SectionHeader:
-            return "## " + self._paragraph2txt(paragraph)
-        elif paragraph[0].type == PaperItemType.Figure:
-            return "![Figure](file://%s)\n" % os.path.abspath(paragraph[0].url)
-        else:
-            return "\n".join([
-                                 "![Figure](file://%s)\n" % os.path.abspath(item.url) for item in paragraph
-                             ] + [self._paragraph2txt(paragraph)])
-
     def _paragraph2img_line(self, paragraph, i):
-        img_template = '<p id="img{}"><img alt="Figure" src="file://{}" /></p>\n'
+        img_template = '<p id="img{}"><img alt="Figure" src="./{}" /></p>\n'
         if paragraph[0].type == PaperItemType.Figure:
-            return img_template.format(i, os.path.abspath(paragraph[0].url))
+            return img_template.format(i, os.path.relpath(paragraph[0].url, self.output_dir))
         else:
-            return "\n".join([img_template.format(i, os.path.abspath(item.url)) for item in paragraph])
+            return "\n".join([img_template.format(i, os.path.relpath(item.url, self.output_dir)) for item in paragraph])
 
     def _paragraph2txt_line(self, paragraph, i):
         txt_template = '<p id="txt{}">{}</p>\n'
@@ -663,7 +646,8 @@ class Paper:
             padding: 50% 1.5em 50%;
         }
         '''
-        css_filename = pjoin(self.output_dir, 'stylesheet.css')
+        css_filename = pjoin(self.resource_dir, 'stylesheet.css')
+        css_rel_path = pjoin('resources', 'stylesheet.css')
         with open(css_filename, 'w') as f:
             f.write(css_content)
         html_files = []
@@ -673,7 +657,7 @@ class Paper:
                 <html lang="en">
                   <head>
                     <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
-                    <link href="stylesheet.css" rel="stylesheet" type="text/css" />
+                    <link href="{}" rel="stylesheet" type="text/css" />
                     <title>
                       {}
                     </title>
@@ -702,7 +686,7 @@ class Paper:
             output_filename = pdf_name + '_%d.html' % i
             output_path = pjoin(self.output_dir, output_filename)
             with open(output_path, 'w') as f:
-                f.write(top_html_template.format(pdf_name, img_c, txt_c, javascript))
+                f.write(top_html_template.format(css_rel_path, pdf_name, img_c, txt_c, javascript))
             html_files.append(output_path)
         return html_files
 

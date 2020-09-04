@@ -59,7 +59,7 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 設定しないと`Operation is not permitted`のエラーが出るので注意してください．
 
 ### フォルダアクションのインストール
-クローンしたソースフォルダから`paper2html/open_downloaded_cache.workflow`
+クローンしたソースフォルダから`paper2html/open_downloaded.workflow`
 をダブルクリックしてautomatorに登録します．
 
 `.zshrc`で自動的に有効になるconda環境でない場合は，
@@ -71,11 +71,7 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 
 次に，pdfのダウンロード先のフォルダを右クリックし，右クリックメニュー＞サービス＞"フォルダアクションを設定.."を選択し，
 "サービスを確認"を押すと，"Finder"が制限されたサービス"フォルダアクションを設定..."を使おうとしています．とメッセージが出ます．
-サービスの実行を押し， ＋でスクリプトを追加，`open_downloaded_cache.workflow`を選択し，関連付ける，を選択すれば完了です．
-
-※ `~/paper2html/downloads`のファイルは容量制限を超えると自動削除されるので注意してください．
-容量はautomatorから変更可能です（clean_downloadsの2番めの引数，デフォルトで1GB）．
-自動削除なしVer.は`open_downloaded.workflow`です．
+サービスの実行を押し， ＋でスクリプトを追加，`open_downloaded.workflow`を選択し，関連付ける，を選択すれば完了です．
 
 ## トラブルシューティング
 `which pdfinfo`とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
