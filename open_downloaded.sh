@@ -1,7 +1,8 @@
 DOWNLOADS_DIR = /home/yourname/Downloads
 
-inotifywait -e create -m ${DOWNLOADS_DIR} --format "%f/%e" | \
+inotifywait -e create -m ${DOWNLOADS_DIR} --format "%w%f" | \
 while read filepath; do
+  echo "${filepath}"
   if [ -e "${filepath}" ]; then
     case "${filepath}" in
     *.pdf )
