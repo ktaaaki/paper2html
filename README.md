@@ -47,7 +47,7 @@ ipythonから
 >>> import paper2html
 >>> paper2html.open_paper_htmls("path-to-paper-file.pdf")
 ```
-macでは下記のインストールを済ませれば，右クリックメニューまたは自動化から
+mac,linuxでは下記のインストールを済ませれば，右クリックメニューまたは自動化から
 
 - 変換したいpdfを選択して，`open pdf as html`を選択する
 - `~/paper2html/downloads`にブラウザからpdfを保存する（自動的に変換が起動）
@@ -65,10 +65,10 @@ macでは下記のインストールを済ませれば，右クリックメニ�
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
 
-## フォルダアクションと右クリックメニューの作成（mac用）
-macではさらに操作を短縮するために，ワークフローが利用できます．
+## フォルダアクションと右クリックメニューの作成
+一部のOSではさらに操作を短縮するツールが利用できます．
 
-### 右クリックメニューのインストール
+### 右クリックメニューのインストール（mac用）
 クローンしたソースフォルダから`paper2html/open pdf as html.workflow`
 をダブルクリックしてautomatorに登録します．
 
@@ -79,7 +79,7 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 ワークフロー内のシェルスクリプトで(システムのpythonではなく)依存関係をインストールしたpythonを利用するため．
 設定しないと`Operation is not permitted`のエラーが出るので注意してください．
 
-### フォルダアクションのインストール
+### フォルダアクションのインストール（mac用）
 クローンしたソースフォルダから`paper2html/open_downloaded.workflow`
 をダブルクリックしてautomatorに登録します．
 
@@ -93,6 +93,25 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 次に，pdfのダウンロード先のフォルダを右クリックし，右クリックメニュー＞サービス＞"フォルダアクションを設定.."を選択し，
 "サービスを確認"を押すと，"Finder"が制限されたサービス"フォルダアクションを設定..."を使おうとしています．とメッセージが出ます．
 サービスの実行を押し， ＋でスクリプトを追加，`open_downloaded.workflow`を選択し，関連付ける，を選択すれば完了です．
+
+### ディレクトリ監視スクリプト（ubuntu用）
+以下のように監視用のツールを導入し，
+```
+sudo apt install inotify-tools
+```
+`paper2html/open_downloaded.sh`の`DOWNLOADS_DIR`を設定した後，
+以下のコマンドを実行すると，ディレクトリが監視されます．
+```
+bash paper2html/open_downloaded.sh
+```
+このディレクトリにダウンロードを行えば自動的にブラウザが起動します．
+
+### フォルダ監視スクリプト（windows用）
+`paper2html/open_downloaded.ps1`の`"C:\MyDownloads"`を適当なフォルダパスに書き換えた後，
+`paper2html/open_downloaded.ps1`の右クリックメニュー＞`power shellを実行`を選択すると，
+フォルダが監視されます．
+
+このフォルダにダウンロードを行えば自動的にブラウザが起動します．
 
 ## トラブルシューティング
 `which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
