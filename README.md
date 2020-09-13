@@ -1,8 +1,8 @@
 # paper2html
 
-[![License: AGPL](https://img.shields.io/badge/license-AGPL-blue)](https://opensource.org/licenses/AGPL-3.0)
+[![License: AGPL](https://img.shields.io/badge/license-AGPL-yellow)](https://opensource.org/licenses/AGPL-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.5|3.7-blue)](https://github.com/ktaaaki/paper2html)
-[![Platform](https://img.shields.io/badge/platform-windows|macos|linux-yellow)](https://github.com/ktaaaki/paper2html)
+[![Platform](https://img.shields.io/badge/platform-windows|macos|ubuntu-blue)](https://github.com/ktaaaki/paper2html)
 
 It will convert a pdf paper to html pages. Only the format of single or double column is supported.
 

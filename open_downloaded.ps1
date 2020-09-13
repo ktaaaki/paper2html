@@ -1,5 +1,5 @@
 $watcher = New-Object System.IO.FileSystemWatcher
-$watcher.Path = "C:\MyDownloads"
+$watcher.Path = "${HOME}/Downloads"
 $watcher.Filter = "*.pdf"
 $watcher.IncludeSubdirectories = $false
 $watcher.EnableRaisingEvents = $true
