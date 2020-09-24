@@ -1,12 +1,15 @@
 # paper2html
 
 [![License: AGPL](https://img.shields.io/badge/license-AGPL-yellow)](https://opensource.org/licenses/AGPL-3.0)
-[![Python Version](https://img.shields.io/badge/python-3.5|3.7-blue)](https://github.com/ktaaaki/paper2html)
+[![Python Version](https://img.shields.io/badge/python-3.5|3.7|3.8-blue)](https://github.com/ktaaaki/paper2html)
 [![Platform](https://img.shields.io/badge/platform-windows|macos|ubuntu-blue)](https://github.com/ktaaaki/paper2html)
 
 It will convert a pdf paper to html pages. Only the format of single or double column is supported.
 
 ２段組の論文をhtml表示するツールです．
+
+<img width="1633" alt="demo" src="https://user-images.githubusercontent.com/4715386/94166499-54ecb480-fec6-11ea-8155-d44d192445fa.png">
+Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan violence: Generative unadversarial networks." arXiv preprint arXiv:1703.02528 (2017).
 
 ## 依存環境のインストール
 popplerとmu-pdfに依存しているので，環境に合わせてインストールしてください．
@@ -107,6 +110,8 @@ bash paper2html/open_downloaded.sh
 このディレクトリにダウンロードを行えば自動的にブラウザが起動します．
 
 ### フォルダ監視スクリプト（windows用）
+※ フォルダ監視が一部環境で機能しないバグが報告されています．
+
 `paper2html/open_downloaded.ps1`の`"C:\MyDownloads"`を適当なフォルダパスに書き換えた後，
 `paper2html/open_downloaded.ps1`の右クリックメニュー＞`power shellを実行`を選択すると，
 フォルダが監視されます．

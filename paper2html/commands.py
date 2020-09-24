@@ -118,7 +118,7 @@ def paper2html(target_path: str, working_dir: str = None, verbose: bool = False)
 
 
 def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: str = None,
-                     n_div_paragraph: int = math.inf, verbose: bool = False):
+                     n_div_paragraph: int = 800, verbose: bool = False):
     """
     Open generated paper htmls from a pdf file with a browser.
     @param pdf_filename:
