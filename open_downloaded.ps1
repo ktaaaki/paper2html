@@ -1,12 +1,22 @@
 $watcher = New-Object System.IO.FileSystemWatcher
-$watcher.Path = "C:\MyDownloads"
+# set your download folder for pdf documents
+$watcher.Path = "${HOME}/Downloads"
 $watcher.Filter = "*.pdf"
 $watcher.IncludeSubdirectories = $false
 $watcher.EnableRaisingEvents = $true
 
 $action = {
     $path = $Event.SourceEventArgs.FullPath
-    python -c "from paper2html import open_paper_htmls; open_paper_htmls('$path')"
+    # set your browser path
+    $browser_path = $env:SystemDrive + "\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+    if (! (Test-Path $browser_path)){
+        $browser_path = $env:SystemDrive + "\Program Files\Google\Chrome\Application\chrome.exe"
+    }
+    if (Test-Path $browser_path){
+        python -c "from paper2html import open_paper_htmls; open_paper_htmls('$path', browser_path='$browser_path')"
+    } else {
+        python -c "from paper2html import open_paper_htmls; open_paper_htmls('$path')"
+    }
 }    
 Register-ObjectEvent $watcher "Created" -Action $action
 

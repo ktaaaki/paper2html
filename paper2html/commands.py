@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+import math
 import os
 from os.path import join as pjoin
 from shutil import rmtree
@@ -116,7 +117,8 @@ def paper2html(target_path: str, working_dir: str = None, verbose: bool = False)
     return urls
 
 
-def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: str = None, verbose: bool = False):
+def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: str = None,
+                     n_div_paragraph: int = 800, verbose: bool = False):
     """
     Open generated paper htmls from a pdf file with a browser.
     @param pdf_filename:
@@ -126,9 +128,12 @@ def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: s
         Default is the same directory as pdf_filename.
     @param browser_path:
         The browser to open the file with.
+    @param n_div_paragraph:
+        Number of paragraphs to combine in one output html.
     @param verbose:
         Whether to output files which indicate the visual recognition process.
     """
+    Paper.n_div_paragraph = n_div_paragraph
     for url in paper2html(pdf_filename, working_dir, verbose):
         open_by_browser(url, browser_path)
 
