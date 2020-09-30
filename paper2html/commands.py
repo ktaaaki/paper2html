@@ -73,7 +73,7 @@ def clean_pdf(pdf_filename, working_dir):
     import subprocess
     _, base_name = os.path.split(pdf_filename)
     new_pdf_filename = pjoin(working_dir, base_name)
-    subprocess.run(['mutool', 'clean', pdf_filename, new_pdf_filename])
+    subprocess.run(['pdftocairo', '-pdf', pdf_filename, new_pdf_filename])
     return new_pdf_filename
 
 
@@ -133,9 +133,12 @@ def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: s
     @param verbose:
         Whether to output files which indicate the visual recognition process.
     """
-    Paper.n_div_paragraph = n_div_paragraph
-    for url in paper2html(pdf_filename, working_dir, verbose):
-        open_by_browser(url, browser_path)
+    try:
+        Paper.n_div_paragraph = n_div_paragraph
+        for url in paper2html(pdf_filename, working_dir, verbose):
+            open_by_browser(url, browser_path)
+    except Exception as e:
+        open_by_browser("https://" + str(e))
 
 
 if __name__ == '__main__':
