@@ -117,14 +117,18 @@ bash paper2html/open_downloaded.sh
 ```
 このディレクトリにダウンロードを行えば自動的にブラウザが起動します．
 
+(デフォルトのブラウザ以外で開きたい場合は，持っているブラウザに合わせて`BROWSER_PATH`も適宜変更してください．)
+
 ### フォルダ監視スクリプト（windows用）
 ※ フォルダ監視が一部環境で機能しないバグが報告されています．
 
-`paper2html/open_downloaded.ps1`の`"C:\MyDownloads"`を適当なフォルダパスに書き換えた後，
+`paper2html/open_downloaded.ps1`の`"${HOME}/Downloads"`を適当なフォルダパスに書き換えた後，
 `paper2html/open_downloaded.ps1`の右クリックメニュー＞`power shellを実行`を選択すると，
-フォルダが監視されます．
+指定したフォルダが監視されます．
 
 このフォルダにダウンロードを行えば自動的にブラウザが起動します．
+
+(デフォルトのブラウザ以外で開きたい場合は，持っているブラウザに合わせて`$browser_path`も適宜変更してください．)
 
 ## トラブルシューティング
 `which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．

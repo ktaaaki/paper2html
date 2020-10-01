@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-import math
 import os
 from os.path import join as pjoin
 from shutil import rmtree
@@ -81,7 +80,7 @@ def message_for_automator(msg):
     webbrowser.open("https://www.google.com/search?q={}".format(quote(msg)))
 
 
-def paper2html(target_path: str, working_dir: str = None, verbose: bool = False) -> list:
+def paper2html(target_path: str, working_dir: str = None, line_margin_rate: float = None, verbose: bool = False) -> list:
     """
     Generate paper htmls from a pdf file.
     @param target_path:
@@ -89,9 +88,12 @@ def paper2html(target_path: str, working_dir: str = None, verbose: bool = False)
     @param working_dir:
         The working directory contains output directory and html files.
         Default is the same directory as pdf_filename.
+    @param line_margin_rate:
+        line margin rate = (line margin) / (line hight).
+        This is optionally used for pdfminer.Lparams.line_margin. It affects paragraph detection.
     @param verbose:
         Whether to output files which indicate the visual recognition process.
-    @return: 
+    @return:
         List of url of generated htmls.
     """
     if os.path.isdir(target_path):
@@ -109,7 +111,7 @@ def paper2html(target_path: str, working_dir: str = None, verbose: bool = False)
     fixed_dir, image_dir, temp_dir = init_working_dir(working_dir, pdf_filename)
     pdf_filename = clean_pdf(pdf_filename, fixed_dir)
     pdf2image.convert_from_path(pdf_filename, output_folder=image_dir, output_file='pdf', paths_only=True)
-    urls = read_by_extended_pdfminer(pdf_filename, verbose)
+    urls = read_by_extended_pdfminer(pdf_filename, line_margin_rate, verbose)
 
     if not verbose:
         rmtree(temp_dir)
@@ -118,7 +120,7 @@ def paper2html(target_path: str, working_dir: str = None, verbose: bool = False)
 
 
 def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: str = None,
-                     n_div_paragraph: int = 800, verbose: bool = False):
+                     n_div_paragraph: int = 800, line_margin_rate: float = None, verbose: bool = False):
     """
     Open generated paper htmls from a pdf file with a browser.
     @param pdf_filename:
@@ -130,15 +132,18 @@ def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: s
         The browser to open the file with.
     @param n_div_paragraph:
         Number of paragraphs to combine in one output html.
+    @param line_margin_rate:
+        line margin rate = (line margin) / (line hight).
+        This is optionally used for pdfminer.Lparams.line_margin. It affects paragraph detection.
     @param verbose:
         Whether to output files which indicate the visual recognition process.
     """
     try:
         Paper.n_div_paragraph = n_div_paragraph
-        for url in paper2html(pdf_filename, working_dir, verbose):
+        for url in paper2html(pdf_filename, working_dir, line_margin_rate, verbose):
             open_by_browser(url, browser_path)
     except Exception as e:
-        open_by_browser("https://" + str(e))
+        message_for_automator(str(e))
 
 
 if __name__ == '__main__':

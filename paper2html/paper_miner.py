@@ -10,8 +10,8 @@ from pdfminer.layout import LAParams
 from .paper import Paper, PaperItemType, PaperItem, PaperPage, unify_bboxes
 
 
-def read_by_extended_pdfminer(pdf_filename, verbose=False):
-    paper = PaperReader(pdf_filename).read()
+def read_by_extended_pdfminer(pdf_filename, line_margin_rate=None, verbose=False):
+    paper = PaperReader(pdf_filename, line_margin_rate).read()
     if verbose:
         paper.show_layouts()
 
@@ -22,20 +22,22 @@ def read_by_extended_pdfminer(pdf_filename, verbose=False):
 
 
 class PaperReader:
-    def __init__(self, pdf_filename):
+    def __init__(self, pdf_filename, line_margin_rate=None):
         self.pdf_filename = pdf_filename
         self.laparams = LAParams()
         # laparams.line_margin = 0.3
         self.laparams.boxes_flow = 1.0  # 1.0: vertical order, -1.0: horizontal order
         # self.laparams.detect_vertical = True
         # laparams.all_texts = True
-        self._zap()
+        if not line_margin_rate:
+            self._zap()
+        else:
+            self.laparams.line_margin = line_margin_rate
 
     def pdf_pages(self):
         with open(self.pdf_filename, 'rb') as fp:
             parser = PDFParser(fp)
             doc = PDFDocument(parser)
-            # doc.initialize('password') # leave empty for no password
 
             for page in PDFPage.create_pages(doc):
                 yield page
@@ -47,7 +49,6 @@ class PaperReader:
 
         for page in self.pdf_pages():
             interpreter.process_page(page)
-            # receive the LTPage object for this page
             yield device.get_result()
 
     def read(self):
@@ -61,6 +62,9 @@ class PaperReader:
         return paper
 
     def _zap(self):
+        """
+        先頭2ページを調べ，行の高さと行間の最頻値からpdfminer.Lparams.line_margin = 行間/行の高さ を設定します．
+        """
         line_margin_counts = {}
         line_height_counts = {}
         zap_max = 2
