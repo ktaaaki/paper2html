@@ -4,34 +4,40 @@
 [![Python Version](https://img.shields.io/badge/python-3.5|3.7|3.8-blue)](https://github.com/ktaaaki/paper2html)
 [![Platform](https://img.shields.io/badge/platform-windows|macos|ubuntu-blue)](https://github.com/ktaaaki/paper2html)
 
-It will convert a pdf paper to html pages. Only the format of single or double column is supported.
+It will convert a pdf paper to html pages & show them using pdf-miner & poppler. Only the format of single or double column is supported.
 
-２段組の論文をhtml表示するツールです．
+pdf-miner.sixとpopplerを使用して(２段組を含む)論文等をhtml表示するツールです．論文調のマニュアルでもきれいに表示できることもあります．
 
 <img width="1633" alt="demo" src="https://user-images.githubusercontent.com/4715386/94166499-54ecb480-fec6-11ea-8155-d44d192445fa.png">
 Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan violence: Generative unadversarial networks." arXiv preprint arXiv:1703.02528 (2017).
 
 ## 依存環境のインストール
-popplerとmu-pdfに依存しているので，環境に合わせてインストールしてください．
+popplerに依存しているので，環境に合わせてインストールしてください．
 
 ### windowsの場合
 `http://blog.alivate.com.au/poppler-windows/`
 
-`https://mupdf.com/downloads/`
+からpopplerをダウンロード＋解凍して，環境変数にexeファイルのある場所のPathを通してください．
 
-からpopplerとmupdfをダウンロード＋解凍して，環境変数にexeファイルのある場所のPathを通してください．
+例えば最新のバイナリ:poppler-0.68.0_x86を`C:¥Users¥YOUR_NAME¥Downloads`にダウンロードして展開した場合は，
+システムの詳細設定の表示＞システムのプロパティ＞詳細設定＞環境変数(N)...＞ユーザー環境変数のPathを編集して
+値`C:¥Users¥YOUR_NAME¥Downloads¥poppler-0.68.0¥bin`を新規に追加してください．
 
 ### ubuntuの場合
 ```
-> sudo apt install mupdf mupdf-tools poppler-utils poppler-data
+> sudo apt install poppler-utils poppler-data
 ```
 ### macの場合
-brew + pyenv + condaの環境でのみ動作確認しています．
+anaconda(miniconda)の場合
 ```
-> brew install mupdf-tools
-> conda install -c conda-forge poppler
+> conda install poppler
+```
+homebrewの場合
+```
+> brew install poppler
 ```
 ## 本体のインストール
+python3とgitをインストールした後，
 以下のコマンドで，作業ディレクトリにクローンしたpaper2htmlをインストールできます．
 ```
 > git clone https://github.com/ktaaaki/paper2html.git
@@ -50,12 +56,6 @@ ipythonから
 >>> import paper2html
 >>> paper2html.open_paper_htmls("path-to-paper-file.pdf")
 ```
-mac,linuxでは下記のインストールを済ませれば，右クリックメニューまたは自動化から
-
-- 変換したいpdfを選択して，`open pdf as html`を選択する
-- `~/paper2html/downloads`にブラウザからpdfを保存する（自動的に変換が起動）
-
-ことで利用可能です．
 
 開くブラウザは以下のように指定可能です．
 ```
@@ -68,6 +68,13 @@ mac,linuxでは下記のインストールを済ませれば，右クリック�
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
 
+さらに，下記のインストールを済ませれば，
+
+- 右クリックメニューから変換したいpdfを選択して，`open pdf as html`を選択する (macのみ)
+- ブラウザからpdfを保存する（自動的に変換が起動）
+
+ことで変換したhtmlを自動的に開くことが可能です．
+
 ## フォルダアクションと右クリックメニューの作成
 一部のOSではさらに操作を短縮するツールが利用できます．
 
@@ -75,7 +82,7 @@ mac,linuxでは下記のインストールを済ませれば，右クリック�
 クローンしたソースフォルダから`paper2html/open pdf as html.workflow`
 をダブルクリックしてautomatorに登録します．
 
-`.zshrc`で自動的に有効になるconda環境でない場合は，
+`.zshrc`で自動的に有効になるpython環境 (≒ zshでデフォルトのpython)でない場合は，
 automatorからインストールされたworkflow内部のシェルスクリプトを変更してください．
 
 MacOSがCatalina以上であれば，設定＞セキュリティとプライバシー＞フルディスクアクセス にFinder.appの追加が必要です．
@@ -86,7 +93,7 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 クローンしたソースフォルダから`paper2html/open_downloaded.workflow`
 をダブルクリックしてautomatorに登録します．
 
-`.zshrc`で自動的に有効になるconda環境でない場合は，
+`.zshrc`で自動的に有効になるpython環境 (≒ zshでデフォルトのpython)でない場合は，
 automatorからインストールされたworkflow内部のシェルスクリプトを変更してください．
 
 MacOSがCatalina以上であれば，設定＞セキュリティとプライバシー＞フルディスクアクセス にFinder.appの追加が必要です．
@@ -95,7 +102,9 @@ MacOSがCatalina以上であれば，設定＞セキュリティとプライバ�
 
 次に，pdfのダウンロード先のフォルダを右クリックし，右クリックメニュー＞サービス＞"フォルダアクションを設定.."を選択し，
 "サービスを確認"を押すと，"Finder"が制限されたサービス"フォルダアクションを設定..."を使おうとしています．とメッセージが出ます．
-サービスの実行を押し， ＋でスクリプトを追加，`open_downloaded.workflow`を選択し，関連付ける，を選択すれば完了です．
+サービスの実行を押し， ＋でスクリプトを追加(下図参照)，`open_downloaded.workflow`を選択し，関連付ける，を選択すれば完了です．
+
+<img width="483" alt="accept_folder_action" src="https://user-images.githubusercontent.com/4715386/94677454-dffefc00-0357-11eb-8948-be0ea6c8f137.png">
 
 ### ディレクトリ監視スクリプト（ubuntu用）
 以下のように監視用のツールを導入し，
@@ -109,14 +118,18 @@ bash paper2html/open_downloaded.sh
 ```
 このディレクトリにダウンロードを行えば自動的にブラウザが起動します．
 
+(デフォルトのブラウザ以外で開きたい場合は，持っているブラウザに合わせて`BROWSER_PATH`も適宜変更してください．)
+
 ### フォルダ監視スクリプト（windows用）
 ※ フォルダ監視が一部環境で機能しないバグが報告されています．
 
-`paper2html/open_downloaded.ps1`の`"C:\MyDownloads"`を適当なフォルダパスに書き換えた後，
+`paper2html/open_downloaded.ps1`の`"${HOME}/Downloads"`を適当なフォルダパスに書き換えた後，
 `paper2html/open_downloaded.ps1`の右クリックメニュー＞`power shellを実行`を選択すると，
-フォルダが監視されます．
+指定したフォルダが監視されます．
 
 このフォルダにダウンロードを行えば自動的にブラウザが起動します．
+
+(デフォルトのブラウザ以外で開きたい場合は，持っているブラウザに合わせて`$browser_path`も適宜変更してください．)
 
 ## トラブルシューティング
 `which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
