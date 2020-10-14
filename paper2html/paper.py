@@ -19,20 +19,6 @@ def has_global_id(target_cls, name='idx'):
     return target_cls
 
 
-def format4gt2(txt):
-    result = txt
-    patt = '([^(.|\n)])- ([^\n])'
-    result = re.sub(patt, r'\1\2', result)
-    patt = '([^(.|\n)])-\n([^\n])'
-    result = re.sub(patt, r'\1\2', result)
-    # patt = '\.\n'
-    # result = re.sub(patt, r'.\n\n', result)
-    patt = '([^(.|\n)])\n([^\n])'
-    result = re.sub(patt, r'\1 \2', result)
-    result = re.sub("([^\\.])\n", r"\1 ", result)
-    return result + "\n"
-
-
 def unify_bboxes(bboxes):
     bbox = [math.inf, math.inf, -math.inf, -math.inf]
     for item_bbox in bboxes:
@@ -546,17 +532,29 @@ class Paper:
             self.arranged_paragraphs.extend(page.footers)
 
     def _paragraph2txt(self, paragraph):
-        eng_txt = format4gt2("".join([item.text for item in paragraph]))
-        return eng_txt
+        """
+        段落内の改行を取り除く．pdfからのコピペの整形に使用していたころの名残．
+        """
+        result = "".join([item.text for item in paragraph])
+        patt = '([^(.|\n)])- ([^\n])'
+        result = re.sub(patt, r'\1\2', result)
+        patt = '([^(.|\n)])-\n([^\n])'
+        result = re.sub(patt, r'\1\2', result)
+        # patt = '\.\n'
+        # result = re.sub(patt, r'.\n\n', result)
+        patt = '([^(.|\n)])\n([^\n])'
+        result = re.sub(patt, r'\1 \2', result)
+        result = re.sub("([^\\.])\n", r"\1 ", result)
+        return result + "\n"
 
-    def _paragraph2img_line(self, paragraph, i):
+    def _paragraph2img_elem(self, paragraph, i):
         img_template = '<p id="img{}"><img alt="Figure" src="./{}" /></p>\n'
         if paragraph[0].type == PaperItemType.Figure:
             return img_template.format(i, os.path.relpath(paragraph[0].url, self.output_dir))
         else:
             return "\n".join([img_template.format(i, os.path.relpath(item.url, self.output_dir)) for item in paragraph])
 
-    def _paragraph2txt_line(self, paragraph, i):
+    def _paragraph2txt_elem(self, paragraph, i):
         txt_template = '<p id="txt{}">{}</p>\n'
         if len(paragraph) == 0:
             return ""
@@ -614,8 +612,8 @@ class Paper:
         '''
         html_pages = []
         for paragraphs in chunks(self.arranged_paragraphs, self.n_div_paragraph):
-            img_content = "\n\n\n\n\n".join([self._paragraph2img_line(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-            txt_content = "\n\n\n\n\n".join([self._paragraph2txt_line(paragraph, i) for i, paragraph in enumerate(paragraphs)])
+            img_content = "\n\n\n\n\n".join([self._paragraph2img_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
+            txt_content = "\n\n\n\n\n".join([self._paragraph2txt_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
 
             html_pages.append([img_content, txt_content])
         css_content = '''

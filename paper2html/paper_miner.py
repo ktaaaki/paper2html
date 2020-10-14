@@ -83,6 +83,9 @@ class PaperReader:
         print('line_height: {}\nline_margin: {}'.format(self.line_height, self.line_margin))
 
     def _count_something(self, item, line_margin_counts, line_height_counts):
+        """
+        検出されたTextLineに対していくつかの統計を取る
+        """
         if isinstance(item, LTPage):
             for child in item:
                 self._count_something(child, line_margin_counts, line_height_counts)
@@ -104,10 +107,16 @@ class PaperReader:
 
     @staticmethod
     def _char_is_horizontal(char):
+        """
+        文字の配置行列から横書きの文字であるかを判定する
+        """
         return abs(char.matrix[0] - char.matrix[3]) < 0.1 and abs(char.matrix[1] - 0) < 0.1 \
                and abs(char.matrix[2] - 0) < 0.1 and char.matrix[0] > 0 and char.matrix[3] > 0
 
     def _textbox_is_vertical(self, text_box):
+        """
+        英文テキストが縦書きされているか判定する
+        """
         # detect vertical text box
         MAX_CHECK_NUM = 10
         checked_char_num = 0

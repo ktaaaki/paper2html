@@ -56,12 +56,6 @@ ipythonから
 >>> import paper2html
 >>> paper2html.open_paper_htmls("path-to-paper-file.pdf")
 ```
-mac,linuxでは下記のインストールを済ませれば，右クリックメニューまたは自動化から
-
-- 変換したいpdfを選択して，`open pdf as html`を選択する
-- `~/paper2html/downloads`にブラウザからpdfを保存する（自動的に変換が起動）
-
-ことで利用可能です．
 
 開くブラウザは以下のように指定可能です．
 ```
@@ -73,6 +67,13 @@ mac,linuxでは下記のインストールを済ませれば，右クリック�
 >>> import paper2html
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
+
+さらに，下記のインストールを済ませれば，
+
+- 右クリックメニューから変換したいpdfを選択して，`open pdf as html`を選択する (macのみ)
+- ブラウザからpdfを保存する（自動的に変換が起動）
+
+ことで変換したhtmlを自動的に開くことが可能です．
 
 ## フォルダアクションと右クリックメニューの作成
 一部のOSではさらに操作を短縮するツールが利用できます．
