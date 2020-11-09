@@ -7,7 +7,8 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.layout import LAParams
-from .paper import Paper, PaperItemType, PaperItem, PaperPage, unify_bboxes, LocalHtmlPaper
+from .paper import Paper, PaperItemType, PaperItem, PaperPage, unify_bboxes
+from .local_html_paper import LocalHtmlPaper
 
 
 def read_by_extended_pdfminer(pdf_filename, line_margin_rate=None, verbose=False):
