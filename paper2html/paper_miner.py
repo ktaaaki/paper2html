@@ -174,19 +174,19 @@ class PaperReader:
     def render_item(self, page, item, page_number):
         separated = False
         if isinstance(item, LTTextBoxHorizontal):
-            self.render_textbox(page, item)
+            self.render_textbox(page, item, page_number)
         elif isinstance(item, (LTLine, LTCurve)):
-            self.render_shape(page, item)
+            self.render_shape(page, item, page_number)
         elif isinstance(item, (LTFigure, LTImage)):
             self.render_figure(page, item, page_number)
         elif isinstance(item, LTTextBoxVertical):
             item_type = PaperItemType.VTextBox
             text = item.get_text()
-            page.items.append(PaperItem(item.bbox, text, item_type, separated))
+            page.items.append(PaperItem(page_number, item.bbox, text, item_type, separated))
         else:
             print(type(item))
 
-    def render_textbox(self, page, textbox):
+    def render_textbox(self, page, textbox, page_number):
         separated = False
         if self._textbox_is_vertical(textbox):
             item_type = PaperItemType.VTextBox
@@ -194,10 +194,10 @@ class PaperReader:
             item_type = PaperItemType.TextBox
             separated = self._check_separated(textbox)
 
-        for paragraph in self._split_by_indent(textbox, item_type, separated):
+        for paragraph in self._split_by_indent(textbox, item_type, separated, page_number):
             page.items.append(paragraph)
 
-    def _split_by_indent(self, textbox, item_type, separated):
+    def _split_by_indent(self, textbox, item_type, separated, page_number):
         bbox = textbox.bbox
         split_lines = [[]]
         lines = list(textbox)
@@ -219,19 +219,19 @@ class PaperReader:
         for lines in split_lines:
             bbox = unify_bboxes([line.bbox for line in lines])
             text = ''.join([line.get_text() for line in lines])
-            results.append(PaperItem(bbox, text, item_type, True))
+            results.append(PaperItem(page_number, bbox, text, item_type, True))
         if len(results) == 0:
             raise ValueError('empty textbox.')
         results[0].separated = separated
         return results
 
-    def render_shape(self, page, item):
+    def render_shape(self, page, item, page_number):
         bbox = item.bbox
         item_type = PaperItemType.Shape
         text = "\n\n\n\n"
         # 幅0でclipするとエラーなので膨らませておく
         bbox = (bbox[0] - 1, bbox[1] - 1, bbox[2] + 1, bbox[3] + 1)
-        page.items.append(PaperItem(bbox, text, item_type, False))
+        page.items.append(PaperItem(page_number, bbox, text, item_type, False))
 
     def render_figure(self, page, item, page_number):
         item_type = PaperItemType.Figure
@@ -246,4 +246,4 @@ class PaperReader:
                 if isinstance(child, LTChar):
                     continue
                 self.render_item(page, child, page_number)
-        page.items.append(PaperItem(item.bbox, text, item_type, False))
+        page.items.append(PaperItem(page_number, item.bbox, text, item_type, False))

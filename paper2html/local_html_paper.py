@@ -45,16 +45,18 @@ class LocalHtmlPaper:
             return txt_template.format(i, self._paragraph2txt(paragraph))
 
     def _paragraph2elem(self, paragraph, i):
-        txt_template = '<p id="txt{}">{}</p>\n'
-        img_template = '<p id="txt{}"><img alt="Figure" src="./{}" /></p>\n'
+        txt_template = '<p data-address="{}" id="txt{}">{}</p>\n'
+        img_template = '<p data-address="{}" id="txt{}"><img alt="Figure" src="./{}" /></p>\n'
         if len(paragraph) == 0:
             return ""
+        address_2d = [(paper_item.page_n, *paper_item.bbox) for paper_item in paragraph]
+        address_str = "|".join(",".join([str(i) for i in item_addr]) for item_addr in address_2d)
         if paragraph[0].type == PaperItemType.SectionHeader:
-            return '<h2 id="txt{}">{}</h2>\n'.format(i, self._paragraph2txt(paragraph))
+            return '<h2 data-address="{}" id="txt{}">{}</h2>\n'.format(address_str, i, self._paragraph2txt(paragraph))
         elif paragraph[0].type == PaperItemType.Figure:
-            return img_template.format(i, os.path.relpath(paragraph[0].url, self.paper.output_dir))
+            return img_template.format(address_str, i, os.path.relpath(paragraph[0].url, self.paper.output_dir))
         else:
-            return txt_template.format(i, self._paragraph2txt(paragraph))
+            return txt_template.format(address_str, i, self._paragraph2txt(paragraph))
 
     @staticmethod
     def _chunks(list, n):
@@ -154,34 +156,33 @@ class LocalHtmlPaper:
 
     def _export_zoomed_htmls(self, css_rel_path):
         # slot: css_rel_path, title, original url, right pane, script
-        top_html_template = r'''
-            <!DOCTYPE html>
-            <html lang="en">
-              <head>
-                <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
-                <link href="{}" rel="stylesheet" type="text/css" />
-                <title>
-                  {}
-                </title>
-              </head>
-              <body>
-                <div id="split">
-                  <header style="position: fixed;">
-                    <a href="{}">[Original PDF]</a>
-                  </header><br />
-                  <div id="left">
-                      <canvas id="canvas"></canvas>
-                  </div>
-                  <div id="right">
-                      {}
-                  </div>
-                </div>
-                {}
-              </body>
-            </html>
+        top_html_template = '''
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
+    <link href="{}" rel="stylesheet" type="text/css" />
+    <title>
+      {}
+    </title>
+  </head>
+  <body>
+    <div id="split">
+      <header style="position: fixed;">
+        <a href="{}">[Original PDF]</a>
+      </header><br />
+      <div id="left">
+          <canvas id="canvas"></canvas>
+      </div>
+      <div id="right">
+          {}
+      </div>
+    </div>
+    {}
+  </body>
+</html>
         '''
         # TODO: ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
-        # TODO: 画像出力したpathを入手する（削除しない）
         # slot: paper_img_path, 
         javascript = r'''
     <script language="javascript" type="text/javascript">
@@ -248,21 +249,17 @@ class LocalHtmlPaper:
         '''
         html_pages = []
         for paragraphs in self._chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
-            # TODO: ページ番号と対応矩形を手に入れ，elemに内包させる
-            content = "\n\n\n\n\n".join(
+            content = "".join(
                 [self._paragraph2elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-
-            html_pages.append(["bbox", content])
+            html_pages.append(content)
 
         html_files = []
         for i, page in enumerate(html_pages):
-            img_column, txt_column = page
             output_filename = self.pdf_name + '_%d.html' % i
             output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
                 original_link = self.paper.output_dir + '.pdf'
-                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link,
-                                                 img_column, txt_column, javascript))
+                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link, page, ""))
             html_files.append(output_path)
         return html_files
 

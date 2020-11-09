@@ -53,16 +53,39 @@ class PaperItemType(IntEnum):
 
 @has_global_id
 class PaperItem:
-    def __init__(self, bbox, text, item_type, separated=False):
+    def __init__(self, page_n, bbox, text, item_type, separated=False):
         bbox_ = bbox
         if bbox[2] - bbox[0] < 0 or bbox[3] - bbox[1] < 0:
             # 幅0でclipするとエラーなので膨らませておく
             bbox_ = (0, 0, 1, 1)
         self.bbox = bbox_
+        self.page_n = page_n
         self.text = text
         self.type = item_type
         self.separated = separated
         self.url = None
+
+
+@has_global_id
+class Paragraph:
+    """
+    １つの段落単位を表す．（PaperItemの段落は1ページに収まる段落の一部）
+    段落だけでなく，図やセクションヘッダも１つの段落単位とする．
+    """
+    def __init__(self, paper_items):
+        self.paper_items = paper_items
+
+    def append(self, paper_item):
+        self.paper_items.append(paper_item)
+
+    def extend(self, paragraph):
+        self.paper_items.extend(paragraph.paper_items)
+
+    def __getitem__(self, item):
+        return self.paper_items[item]
+
+    def __len__(self):
+        return len(self.paper_items)
 
 
 @has_global_id
@@ -225,7 +248,7 @@ class PaperPage:
         # 統合が終わったあとに最小限のbboxに整形する
         # TODO: 数式の一部が切れる
         bbox = unify_bboxes(item.bbox for item in overlaps)
-        result = PaperItem(bbox, text, PaperItemType.Paragraph, separated)
+        result = PaperItem(self.page_n, bbox, text, PaperItemType.Paragraph, separated)
         return result
 
     def _get_inflated_bbox(self, bbox, address):
@@ -292,7 +315,7 @@ class PaperPage:
                             item.type = PaperItemType.Paragraph
                             i += 1
                             continue
-                        new_item = PaperItem(composed_bbox, " ", PaperItemType.Paragraph)
+                        new_item = PaperItem(self.page_n, composed_bbox, " ", PaperItemType.Paragraph)
                         filename = self._crop_image(image, new_item.bbox)
                         new_item.url = filename
                         collapsed_texts = []
@@ -317,7 +340,7 @@ class PaperPage:
     def _crop_image(self, image, bbox):
         cropbox = (*self._pt2pixel(bbox[0], bbox[3], image), *self._pt2pixel(bbox[2], bbox[1], image))
         cropped = image.crop(cropbox)
-        filename = pjoin(self.crop_dir, "item_%d_%d_%d_%d_%d.jpg" % (self.page_n, bbox[0], bbox[1], bbox[2], bbox[3]))
+        filename = pjoin(self.crop_dir, "item_%d_%d_%d_%d_%d.png" % (self.page_n, bbox[0], bbox[1], bbox[2], bbox[3]))
         if cropped.width == 0 or cropped.height == 0:
             cropped = Image.new('RGB', (1, 1), (0xdd, 0xdd, 0xdd))
         cropped.save(filename)
@@ -451,7 +474,7 @@ class PaperPage:
             if address not in target_address:
                 continue
             if item.type == PaperItemType.SectionHeader:
-                paragraphs.append([item])
+                paragraphs.append(Paragraph([item]))
                 caption_continue = False
                 paragraph_continue = False
             elif item.type == PaperItemType.Paragraph:
@@ -464,15 +487,15 @@ class PaperPage:
                     caption_continue = False
                     paragraph_continue = item.separated
                 else:
-                    paragraphs.append([item])
+                    paragraphs.append(Paragraph([item]))
                     caption_continue = False
                     paragraph_continue = item.separated
             elif item.type == PaperItemType.Caption:
-                self.captions.append([item])
+                self.captions.append(Paragraph([item]))
                 caption_continue = item.separated
                 paragraph_continue = False
             elif item.type == PaperItemType.Figure:
-                self.captions.append([item])
+                self.captions.append(Paragraph([item]))
 
     def _arrange_paragraphs(self):
         self._reap_paragraphs((PageAddress.Head,), self.headers)
@@ -516,7 +539,7 @@ class Paper:
     def paragraphs(self):
         """
         段落のリスト．読む順序に合わせて塊ごとに並んでいる．
-        @return: list of list of PaperItem
+        @return: list of Paragraph
         """
         if not self._paragraphs:
             self._arrange_paragraphs()
@@ -548,7 +571,7 @@ class Paper:
 
     def show_layouts(self):
         """
-        青枠：カラム構成
+        青枠：論文のカラム構成
         黒枠：テキストボックス
         赤枠：その他
         """

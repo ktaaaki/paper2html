@@ -32,9 +32,10 @@ def init_working_dir(working_dir, pdf_filename):
     resource_dir = pjoin(output_dir, 'resources')
     temp_dir = pjoin(output_dir, 'temp')
 
+    # TODO: crop_dirはtemp_dirの下でもいい
     crop_dir = pjoin(resource_dir, 'crops')
+    image_dir = pjoin(resource_dir, 'original_images')
     fixed_dir = pjoin(temp_dir, 'fixed_pdf')
-    image_dir = pjoin(temp_dir, 'original_images')
     layout_dir = pjoin(temp_dir, 'layout')
 
     Paper.output_dir = output_dir
@@ -109,7 +110,7 @@ def paper2html(target_path: str, working_dir: str = None, line_margin_rate: floa
 
     fixed_dir, image_dir, temp_dir = init_working_dir(working_dir, pdf_filename)
     pdf_filename = clean_pdf(pdf_filename, fixed_dir)
-    pdf2image.convert_from_path(pdf_filename, output_folder=image_dir, output_file='pdf', paths_only=True)
+    pdf2image.convert_from_path(pdf_filename, output_folder=image_dir, output_file='pdf', paths_only=True, fmt='png')
     urls = read_by_extended_pdfminer(pdf_filename, line_margin_rate, verbose)
 
     if not verbose:
@@ -143,6 +144,7 @@ def open_paper_htmls(pdf_filename: str, working_dir: str = None, browser_path: s
             open_by_browser(url, browser_path)
     except Exception as e:
         message_for_automator(str(e))
+        raise e
 
 
 if __name__ == '__main__':
