@@ -497,39 +497,44 @@ class Paper:
     pdfminerの解析結果を表すクラス．
     """
     output_dir = None
-    resource_dir = None
     layout_dir = None
     # n_div_paragraph = 200
     n_div_paragraph = math.inf
 
     def __init__(self, line_height, line_margin):
         self.pages = []
-        self.arranged_paragraphs = None
         self.line_height = line_height
         self.line_margin = line_margin
+        self._paragraphs = None
 
     def add_page(self, page):
         page.recognize(self.line_height, self.line_margin)
         self.pages.append(page)
-        self.arranged_paragraphs = None
+        self._paragraphs = None
+
+    @property
+    def paragraphs(self):
+        if not self._paragraphs:
+            self._arrange_paragraphs()
+        return self._paragraphs
 
     def _arrange_paragraphs(self):
-        self.arranged_paragraphs = []
+        self._paragraphs = []
         body_separated = False
         for page in self.pages:
             # TODO: 小文字から始まる段落を前の段落に結合するべき？（現状は前段落のピリオドを手がかりにしている）
             if body_separated and page.body_paragraphs:
-                self.arranged_paragraphs[-1].extend(page.body_paragraphs[0])
+                self._paragraphs[-1].extend(page.body_paragraphs[0])
 
-            self.arranged_paragraphs.extend(page.headers)
-            self.arranged_paragraphs.extend(page.captions)
+            self._paragraphs.extend(page.headers)
+            self._paragraphs.extend(page.captions)
 
             offset = 0 if not body_separated else 1
-            self.arranged_paragraphs.extend(page.body_paragraphs[offset:])
+            self._paragraphs.extend(page.body_paragraphs[offset:])
             if page.body_paragraphs:
                 body_separated = page.body_paragraphs[-1][-1].separated
 
-            self.arranged_paragraphs.extend(page.footers)
+            self._paragraphs.extend(page.footers)
 
     def _paragraph2txt(self, paragraph):
         """
@@ -565,16 +570,108 @@ class Paper:
         else:
             return txt_template.format(i, self._paragraph2txt(paragraph))
 
-    def get_htmls(self, pdf_name):
-        if not self.arranged_paragraphs:
-            self._arrange_paragraphs()
+    def _draw_rect(self, bbox, ax, ec_str="#000000"):
+        import matplotlib.patches as patches
+        ax.add_patch(patches.Rectangle(xy=(bbox[0], bbox[1]),
+                                       width=bbox[2] - bbox[0], height=bbox[3] - bbox[1],
+                                       ec=ec_str, fill=False))
 
-        def chunks(list, n):
-            if n == math.inf:
-                yield list
-                return
-            for i in range(0, len(list), n):
-                yield list[i:i + n]
+    def show_layouts(self):
+        """
+        青枠：カラム構成
+        黒枠：テキストボックス
+        赤枠：その他
+        """
+        import matplotlib.pyplot as plt
+        plt.figure()
+        for page_n, page in enumerate(self.pages):
+            ax = plt.axes()
+            for item in page.items:
+                bbox = item.bbox
+                ec_str = "#000000" if item.type == PaperItemType.Paragraph else "#FF0000"
+                self._draw_rect(bbox, ax, ec_str)
+            for bbox in (page.header_bbox, page.left_bbox, page.right_bbox, page.footer_bbox):
+                self._draw_rect(bbox, ax, "#0000FF")
+
+            plt.axis('scaled')
+            ax.set_aspect('equal')
+            plt.savefig(pjoin(self.layout_dir, 'pdf2jpn%d.png' % page_n))
+            plt.clf()
+
+
+class LocalHtmlPaper:
+    def __init__(self, paper, pdf_name):
+        self.paper = paper
+        self.pdf_name = pdf_name
+
+    def export(self):
+        css_content = '''
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+        }
+        #split{
+            height: 100%;
+        }
+        #left {
+            float: left;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            overflow: auto;
+            box-sizing: border-box;
+            z-index: 1;
+            padding: 50% 1.5em 50%;
+        }
+        #right{
+            float: left;
+            top: 0;
+            left: 50%;
+            width: 50%;
+            height: 100%;
+            overflow: auto;
+            box-sizing: border-box;
+            z-index: 2;
+            background-color: #FFFFFF;
+            padding: 50% 1.5em 50%;
+        }
+        '''
+        css_rel_path = pjoin('resources', 'stylesheet.css')
+        css_filename = pjoin(self.paper.output_dir, css_rel_path)
+        with open(css_filename, 'w', encoding="utf-8_sig") as f:
+            f.write(css_content)
+
+        top_html_template = '''
+            <!DOCTYPE html>
+            <html lang="en">
+              <head>
+                <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
+                <link href="{}" rel="stylesheet" type="text/css" />
+                <title>
+                  {}
+                </title>
+              </head>
+              <body>
+                <div id="split">
+                  <header style="position: fixed;">
+                    <input type="button" value="30%" onclick="Zoom(0.33);"/>
+                    <input type="button" value="50%" onclick="Zoom(0.5);"/>
+                    <input type="button" value="65%" onclick="Zoom(0.65);"/>
+                    <input type="button" value="100%" onclick="Zoom(1);"/>
+                    <a href="{}">[Original PDF]</a>
+                  </header><br />
+                  <div id="left">
+                      {}
+                  </div>
+                  <div id="right">
+                      {}
+                  </div>
+                </div>
+                {}
+              </body>
+            </html>
+        '''
         javascript = r'''
         <script language="javascript" type="text/javascript">
             const Zoom = function(rate) {
@@ -610,115 +707,166 @@ class Paper:
             }
         </script>
         '''
+
+        def chunks(list, n):
+            if n == math.inf:
+                yield list
+                return
+            for i in range(0, len(list), n):
+                yield list[i:i + n]
+
         html_pages = []
-        for paragraphs in chunks(self.arranged_paragraphs, self.n_div_paragraph):
-            img_content = "\n\n\n\n\n".join([self._paragraph2img_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-            txt_content = "\n\n\n\n\n".join([self._paragraph2txt_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
+        for paragraphs in chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
+            img_content = "\n\n\n\n\n".join(
+                [self.paper._paragraph2img_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
+            txt_content = "\n\n\n\n\n".join(
+                [self.paper._paragraph2txt_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
 
             html_pages.append([img_content, txt_content])
-        css_content = '''
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            margin: 0;
-        }
-        #split{
-            height: 100%;
-        }
-        #left {
-            float: left;
-            top: 0;
-            width: 50%;
-            height: 100%;
-            overflow: auto;
-            box-sizing: border-box;
-            z-index: 1;
-            padding: 50% 1.5em 50%;
-        }
-        #right{
-            float: left;
-            top: 0;
-            left: 50%;
-            width: 50%;
-            height: 100%;
-            overflow: auto;
-            box-sizing: border-box;
-            z-index: 2;
-            background-color: #FFFFFF;
-            padding: 50% 1.5em 50%;
-        }
-        '''
-        css_filename = pjoin(self.resource_dir, 'stylesheet.css')
-        css_rel_path = pjoin('resources', 'stylesheet.css')
-        with open(css_filename, 'w', encoding="utf-8_sig") as f:
-            f.write(css_content)
+
         html_files = []
         for i, page in enumerate(html_pages):
-            top_html_template = '''
-                <!DOCTYPE html>
-                <html lang="en">
-                  <head>
-                    <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
-                    <link href="{}" rel="stylesheet" type="text/css" />
-                    <title>
-                      {}
-                    </title>
-                  </head>
-                  <body>
-                    <div id="split">
-                      <header style="position: fixed;">
-                        <input type="button" value="30%" onclick="Zoom(0.33);"/>
-                        <input type="button" value="50%" onclick="Zoom(0.5);"/>
-                        <input type="button" value="65%" onclick="Zoom(0.65);"/>
-                        <input type="button" value="100%" onclick="Zoom(1);"/>
-                        <a href="{}">[Original PDF]</a>
-                      </header><br />
-                      <div id="left">
-                          {}
-                      </div>
-                      <div id="right">
-                          {}
-                      </div>
-                    </div>
-                    {}
-                  </body>
-                </html>
-            '''
             img_c, txt_c = page
-
-            output_filename = pdf_name + '_%d.html' % i
-            output_path = pjoin(self.output_dir, output_filename)
+            output_filename = self.pdf_name + '_%d.html' % i
+            output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
-                original_link = self.output_dir + '.pdf'
-                f.write(top_html_template.format(css_rel_path, pdf_name, original_link, img_c, txt_c, javascript))
+                original_link = self.paper.output_dir + '.pdf'
+                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link, img_c, txt_c, javascript))
             html_files.append(output_path)
+
         return html_files
 
-    def _draw_rect(self, bbox, ax, ec_str="#000000"):
-        import matplotlib.patches as patches
-        ax.add_patch(patches.Rectangle(xy=(bbox[0], bbox[1]),
-                                       width=bbox[2] - bbox[0], height=bbox[3] - bbox[1],
-                                       ec=ec_str, fill=False))
 
-    def show_layouts(self):
-        """
-        青枠：カラム構成
-        黒枠：テキストボックス
-        赤枠：その他
-        """
-        import matplotlib.pyplot as plt
-        plt.figure()
-        for page_n, page in enumerate(self.pages):
-            ax = plt.axes()
-            for item in page.items:
-                bbox = item.bbox
-                ec_str = "#000000" if item.type == PaperItemType.Paragraph else "#FF0000"
-                self._draw_rect(bbox, ax, ec_str)
-            for bbox in (page.header_bbox, page.left_bbox, page.right_bbox, page.footer_bbox):
-                self._draw_rect(bbox, ax, "#0000FF")
+class PatchedHtmlPaper(LocalHtmlPaper):
+    pass
 
-            plt.axis('scaled')
-            ax.set_aspect('equal')
-            plt.savefig(pjoin(self.layout_dir, 'pdf2jpn%d.png' % page_n))
-            plt.clf()
 
+class CloseUppedHtmlPaper(LocalHtmlPaper):
+    pass
+
+
+def convert_paper_to_htmls(paper, pdf_name):
+    def chunks(list, n):
+        if n == math.inf:
+            yield list
+            return
+        for i in range(0, len(list), n):
+            yield list[i:i + n]
+    javascript = r'''
+    <script language="javascript" type="text/javascript">
+        const Zoom = function(rate) {
+            for (let i = 0; i < document.images.length; i++) {
+                document.images[i].width = document.images[i].naturalWidth * rate;
+                document.images[i].height = document.images[i].naturalHeight * rate;
+            }
+        }
+        const rightw = document.getElementById('right');
+        const leftw = document.getElementById('left');
+        const split = document.getElementById( 'split' );
+
+        var onscrollR = function() {
+         const top_ = split.scrollTop;
+         const bottom_ = top_ + split.clientHeight;
+         const center_ = (2/3) * top_ + (1/3) * bottom_;
+         for(var i = 0; i < rightw.children.length; i++) {
+          const txt_line = rightw.children[i];
+          const rect = txt_line.getBoundingClientRect();
+            if (rect.top <= center_ && center_ <= rect.bottom)
+            {
+              const delta_rate = (center_ - rect.top) / rect.height;
+              const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
+              const delta_ = delta_rate * img_line.offsetHeight;
+              leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
+              break;
+            }
+          }
+        }
+        if( rightw.addEventListener )
+        {
+            rightw.addEventListener('scroll', onscrollR, false);
+        }
+    </script>
+    '''
+    html_pages = []
+    for paragraphs in chunks(paper.paragraphs, paper.n_div_paragraph):
+        img_content = "\n\n\n\n\n".join([paper._paragraph2img_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
+        txt_content = "\n\n\n\n\n".join([paper._paragraph2txt_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
+
+        html_pages.append([img_content, txt_content])
+    css_content = '''
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        margin: 0;
+    }
+    #split{
+        height: 100%;
+    }
+    #left {
+        float: left;
+        top: 0;
+        width: 50%;
+        height: 100%;
+        overflow: auto;
+        box-sizing: border-box;
+        z-index: 1;
+        padding: 50% 1.5em 50%;
+    }
+    #right{
+        float: left;
+        top: 0;
+        left: 50%;
+        width: 50%;
+        height: 100%;
+        overflow: auto;
+        box-sizing: border-box;
+        z-index: 2;
+        background-color: #FFFFFF;
+        padding: 50% 1.5em 50%;
+    }
+    '''
+    css_rel_path = pjoin('resources', 'stylesheet.css')
+    css_filename = pjoin(paper.output_dir, css_rel_path)
+    with open(css_filename, 'w', encoding="utf-8_sig") as f:
+        f.write(css_content)
+    html_files = []
+    for i, page in enumerate(html_pages):
+        top_html_template = '''
+            <!DOCTYPE html>
+            <html lang="en">
+              <head>
+                <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
+                <link href="{}" rel="stylesheet" type="text/css" />
+                <title>
+                  {}
+                </title>
+              </head>
+              <body>
+                <div id="split">
+                  <header style="position: fixed;">
+                    <input type="button" value="30%" onclick="Zoom(0.33);"/>
+                    <input type="button" value="50%" onclick="Zoom(0.5);"/>
+                    <input type="button" value="65%" onclick="Zoom(0.65);"/>
+                    <input type="button" value="100%" onclick="Zoom(1);"/>
+                    <a href="{}">[Original PDF]</a>
+                  </header><br />
+                  <div id="left">
+                      {}
+                  </div>
+                  <div id="right">
+                      {}
+                  </div>
+                </div>
+                {}
+              </body>
+            </html>
+        '''
+        img_c, txt_c = page
+
+        output_filename = pdf_name + '_%d.html' % i
+        output_path = pjoin(paper.output_dir, output_filename)
+        with open(output_path, 'w', encoding="utf-8_sig") as f:
+            original_link = paper.output_dir + '.pdf'
+            f.write(top_html_template.format(css_rel_path, pdf_name, original_link, img_c, txt_c, javascript))
+        html_files.append(output_path)
+    return html_files

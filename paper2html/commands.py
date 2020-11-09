@@ -38,7 +38,6 @@ def init_working_dir(working_dir, pdf_filename):
     layout_dir = pjoin(temp_dir, 'layout')
 
     Paper.output_dir = output_dir
-    Paper.resource_dir = resource_dir
     Paper.layout_dir = layout_dir
     PaperPage.image_dir = image_dir
     PaperPage.crop_dir = crop_dir
