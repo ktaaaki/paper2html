@@ -2,6 +2,7 @@ import re
 import os
 import math
 from os.path import join as pjoin
+from glob import glob
 from .paper import PaperItemType
 
 
@@ -49,7 +50,7 @@ class LocalHtmlPaper:
         img_template = '<p data-address="{}" id="txt{}"><img alt="Figure" src="./{}" /></p>\n'
         if len(paragraph) == 0:
             return ""
-        address_2d = [(paper_item.page_n, *paper_item.bbox) for paper_item in paragraph]
+        address_2d = [(paper_item.page_n, *self._bbox2pixel(paper_item.bbox, paper_item.page_n)) for paper_item in paragraph]
         address_str = "|".join(",".join([str(i) for i in item_addr]) for item_addr in address_2d)
         if paragraph[0].type == PaperItemType.SectionHeader:
             return '<h2 data-address="{}" id="txt{}">{}</h2>\n'.format(address_str, i, self._paragraph2txt(paragraph))
@@ -183,69 +184,116 @@ class LocalHtmlPaper:
 </html>
         '''
         # TODO: ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
-        # slot: paper_img_path, 
+        # slot: paper_img_paths
         javascript = r'''
-    <script language="javascript" type="text/javascript">
-      const img_path = "{}";
+<script language="javascript" type="text/javascript">
+  // setup base elements
+  const rightw = document.getElementById('right');
+  const leftw = document.getElementById('left');
+  const split = document.getElementById( 'split' );
 
-      const rightw = document.getElementById('right');
-      const leftw = document.getElementById('left');
-      const split = document.getElementById( 'split' );
+  var canvas = document.getElementById('canvas');
+  canvas.width = leftw.clientWidth;
+  canvas.height = leftw.clientHeight;
+  rightw.style.paddingTop = String(rightw.clientHeight*(1./4.))+"px";
+  rightw.style.paddingBottom = String(rightw.clientHeight*(3./4.))+"px";
+  var c = canvas.getContext('2d');
 
-      var canvas = document.getElementById('canvas');
-      canvas.width = leftw.clientWidth;
-      canvas.height = leftw.clientHeight;
-      rightw.style.paddingTop = String(rightw.clientHeight*(1./4.))+"px";
-      rightw.style.paddingBottom = String(rightw.clientHeight*(3./4.))+"px";
-      var c = canvas.getContext('2d');
-      var zoom_rate = 1;
+  // load all images
+  // 直接ファイルリストをスクリプトに埋め込む
+  const img_pathes = ####;
 
-      // Image オブジェクトを生成
-      var img = new Image();
-      img.src = img_path;
-
-      img.onload = function(){
-          zoom_rate = Math.min(canvas.width/img.width, canvas.height/img.height);
-          // 拡大
-          c.scale(zoom_rate, zoom_rate);
-          c.drawImage(img, 0, 0);
-
-      }
-
-      const Zoom = function(rate) {
-          for (let i = 0; i < document.images.length; i++) {
-              document.images[i].width = document.images[i].naturalWidth * rate;
-              document.images[i].height = document.images[i].naturalHeight * rate;
-          }
-      }
-
-      var onscrollR = function() {
-       const top_ = split.scrollTop;
-       const bottom_ = top_ + split.clientHeight;
-       const center_ = (2/3) * top_ + (1/3) * bottom_;
-
-       for(var i = 0; i < rightw.children.length; i++) {
-        const txt_line = rightw.children[i];
-        const rect = txt_line.getBoundingClientRect();
-          if (rect.top <= center_ && center_ <= rect.bottom)
-          {
-            const delta_rate = (center_ - rect.top) / rect.height;
-            //const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
-            //const delta_ = delta_rate * img_line.offsetHeight;
-            //leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
-            //c.clearRect(0, 0, c.canvas.width, c.canvas.height);
-            c.fillStyle = "rgba(255, 255, 255, 255)";
-            c.fillRect(0, 0, canvas.width/zoom_rate, canvas.height/zoom_rate);
-            c.drawImage(img, rect.top, rect.top);
-            break;
-          }
+  var paper_imgs = {};
+  var loaded_img_count = 0;
+  function on_img_loaded(){
+    // zoom_rate = Math.min(canvas.width/paper_imgs[0].width, canvas.height/paper_imgs[0].height);
+    // // 拡大
+    // c.scale(zoom_rate, zoom_rate);
+    // c.drawImage(paper_imgs[0], 0, 0);
+  }
+  for(i = 0; i < img_pathes.length; i++){
+    const img = new Image();
+    const closure_i = i;
+    img.src = img_pathes[i];
+    img.onload = function(){
+        paper_imgs[closure_i] = img;
+        loaded_img_count++;
+        if(loaded_img_count == img_pathes.length){
+          on_img_loaded();
         }
-      }
-      if( rightw.addEventListener )
+    }
+  }
+
+  const parse_address = function(str_addr) {
+    return str_addr.split('|').map(each_addr => {
+      const num_strs = each_addr.split(',');
+      const page_n = parseInt(num_strs[0]);
+      const left = parseFloat(num_strs[1]);
+      const top = parseFloat(num_strs[2]);
+      const right = parseFloat(num_strs[3]);
+      const bottom = parseFloat(num_strs[4]);
+      return [page_n, left, top, right, bottom];
+    });
+  }
+  const get_address = function(elem) {
+    return parse_address(elem.getAttribute("data-address"));
+  }
+
+  const get_papers_transform = function(paper_size, canvas_size, target, center_height){
+    const zoom = canvas_size[0]/target[2];
+    const left = -target[0]*zoom;
+    const top = -(target[1]+target[3]/2.)*zoom + center_height;
+    return [left, top, zoom];
+  }
+
+  // const Zoom = function(rate) {
+  //     for (let i = 0; i < document.images.length; i++) {
+  //         document.images[i].width = document.images[i].naturalWidth * rate;
+  //         document.images[i].height = document.images[i].naturalHeight * rate;
+  //     }
+  // }
+
+  var now_addr = [];
+  var now_trsf = [];
+  const onscrollR = function() {
+   const top_ = split.scrollTop;
+   const bottom_ = top_ + split.clientHeight;
+   const center_ = (2/3) * top_ + (1/3) * bottom_;
+
+   for(var i = 0; i < rightw.children.length; i++) {
+    const txt_line = rightw.children[i];
+    const rect = txt_line.getBoundingClientRect();
+      if (rect.top <= center_ && center_ <= rect.bottom)
       {
-          rightw.addEventListener('scroll', onscrollR, false);
+        const delta_rate = (center_ - rect.top) / rect.height;
+        //const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
+        //const delta_ = delta_rate * img_line.offsetHeight;
+        //leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
+        const addrs = get_address(txt_line);
+        const addr = addrs[0];
+        now_addr = addr;
+        const paper_img = paper_imgs[addr[0]];
+        const trsf = get_papers_transform(
+          [paper_img.width, paper_img.height],
+          [canvas.width, canvas.height],
+          [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
+          center_);
+        now_trsf = trsf;
+        c.fillStyle = "rgba(255, 255, 255, 255)";
+        c.fillRect(0, 0, canvas.width, canvas.height);
+        c.save();
+        c.scale(trsf[2], trsf[2]);
+        c.drawImage(paper_img, trsf[0], trsf[1]);
+        c.restore();
+        break;
       }
-    </script>
+    }
+  }
+  if( rightw.addEventListener )
+  {
+      rightw.addEventListener('scroll', onscrollR, false);
+  }
+</script>
         '''
         html_pages = []
         for paragraphs in self._chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
@@ -253,15 +301,22 @@ class LocalHtmlPaper:
                 [self._paragraph2elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
             html_pages.append(content)
 
+        image_dir = self.paper.pages[0].image_dir
+        original_image_paths = sorted([os.path.relpath(abspath, self.paper.output_dir) for abspath in glob(pjoin(image_dir, "*.png"))])
         html_files = []
         for i, page in enumerate(html_pages):
             output_filename = self.pdf_name + '_%d.html' % i
             output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
                 original_link = self.paper.output_dir + '.pdf'
-                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link, page, ""))
+                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link, page,
+                                                 javascript.replace("####", str(original_image_paths))))
             html_files.append(output_path)
         return html_files
+
+    def _bbox2pixel(self, bbox, page_n):
+        page = self.paper.pages[page_n]
+        return (*page._pt2pixel(bbox[0], bbox[3]), *page._pt2pixel(bbox[2], bbox[1]))
 
     def export(self):
         css_content = '''
@@ -296,9 +351,40 @@ class LocalHtmlPaper:
             padding: 50% 1.5em 50%;
         }
         '''
+        css_content = '''
+html, body {
+    height: 100%;
+    overflow: hidden;
+    margin: 0;
+}
+#split{
+    height: 100%;
+}
+#left {
+    float: left;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    overflow: auto;
+    box-sizing: border-box;
+    z-index: 1;
+}
+#right{
+    float: left;
+    top: 0;
+    left: 50%;
+    width: 50%;
+    height: 100%;
+    overflow: auto;
+    box-sizing: border-box;
+    z-index: 2;
+    background-color: #FFFFFF;
+    padding: 0% 1.5em;
+}
+        '''
         css_rel_path = pjoin('resources', 'stylesheet.css')
         css_filename = pjoin(self.paper.output_dir, css_rel_path)
         with open(css_filename, 'w', encoding="utf-8_sig") as f:
             f.write(css_content)
 
-        return self._export_patched_htmls(css_rel_path)
+        return self._export_zoomed_htmls(css_rel_path)

@@ -110,6 +110,8 @@ class PaperPage:
         self.body_paragraphs = []
         self.captions = []
 
+        self.image = None
+
     def recognize(self, line_height, line_margin):
         """
         pdfminerから読み取られた描画オブジェクトを論文形式の文書として認識する
@@ -290,12 +292,12 @@ class PaperPage:
         return item_type in split_type
 
     def _recognize_items(self):
-        image = Image.open(pjoin(self.image_dir, sorted(os.listdir(self.image_dir))[self.page_n]))
+        self.image = Image.open(pjoin(self.image_dir, sorted(os.listdir(self.image_dir))[self.page_n]))
         items_count = len(self.sorted_items)
         i = 0
         while i < items_count:
             address, _, _, item = self.sorted_items[i]
-            filename = self._crop_image(image, item.bbox)
+            filename = self._crop_image(item.bbox)
             item.url = filename
             if item.type == PaperItemType.TextBox:
                 if self._is_section_header(item.text):
@@ -316,7 +318,7 @@ class PaperPage:
                             i += 1
                             continue
                         new_item = PaperItem(self.page_n, composed_bbox, " ", PaperItemType.Paragraph)
-                        filename = self._crop_image(image, new_item.bbox)
+                        filename = self._crop_image(new_item.bbox)
                         new_item.url = filename
                         collapsed_texts = []
                         for item_ in self._collided_items(new_item.bbox):
@@ -332,14 +334,14 @@ class PaperPage:
     def _collided_items(self, bbox):
         return (item for _, _, _, item in self.sorted_items if self._collided(item.bbox, bbox))
 
-    def _pt2pixel(self, x, y, image):
-        xsize, ysize = image.size
+    def _pt2pixel(self, x, y):
+        xsize, ysize = self.image.size
         xrate, yrate = (xsize / (self.bbox[2] - self.bbox[0]), ysize / (self.bbox[3] - self.bbox[1]))
         return int((x - self.bbox[0]) * xrate), int((self.bbox[3] - y) * yrate)
 
-    def _crop_image(self, image, bbox):
-        cropbox = (*self._pt2pixel(bbox[0], bbox[3], image), *self._pt2pixel(bbox[2], bbox[1], image))
-        cropped = image.crop(cropbox)
+    def _crop_image(self, bbox):
+        cropbox = (*self._pt2pixel(bbox[0], bbox[3]), *self._pt2pixel(bbox[2], bbox[1]))
+        cropped = self.image.crop(cropbox)
         filename = pjoin(self.crop_dir, "item_%d_%d_%d_%d_%d.png" % (self.page_n, bbox[0], bbox[1], bbox[2], bbox[3]))
         if cropped.width == 0 or cropped.height == 0:
             cropped = Image.new('RGB', (1, 1), (0xdd, 0xdd, 0xdd))
