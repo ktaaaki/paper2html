@@ -239,19 +239,15 @@ class LocalHtmlPaper:
     return parse_address(elem.getAttribute("data-address"));
   }
 
+
   const get_papers_transform = function(paper_size, canvas_size, target, center_height){
     const zoom = canvas_size[0]/target[2];
-    const left = -target[0]*zoom;
-    const top = -(target[1]+target[3]/2.)*zoom + center_height;
-    return [left, top, zoom];
+    const content_top = center_height/zoom - target[3]/2.;
+    const content_left = 0;
+    const left = -target[0] + content_left;
+    const top = -target[1] + content_top;
+    return [zoom, left, top];
   }
-
-  // const Zoom = function(rate) {
-  //     for (let i = 0; i < document.images.length; i++) {
-  //         document.images[i].width = document.images[i].naturalWidth * rate;
-  //         document.images[i].height = document.images[i].naturalHeight * rate;
-  //     }
-  // }
 
   var now_addr = [];
   var now_trsf = [];
@@ -279,11 +275,11 @@ class LocalHtmlPaper:
           [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
           center_);
         now_trsf = trsf;
-        c.fillStyle = "rgba(255, 255, 255, 255)";
+        c.fillStyle = "rgb(255, 255, 255)";
         c.fillRect(0, 0, canvas.width, canvas.height);
         c.save();
-        c.scale(trsf[2], trsf[2]);
-        c.drawImage(paper_img, trsf[0], trsf[1]);
+        c.scale(trsf[0], trsf[0]);
+        c.drawImage(paper_img, trsf[1], trsf[2]);
         c.restore();
         break;
       }
