@@ -45,12 +45,18 @@ class LocalHtmlPaper:
         else:
             return txt_template.format(i, self._paragraph2txt(paragraph))
 
+    def _get_zoomed_pixel(self, paper_item):
+        column_bbox = self.paper.pages[paper_item.page_n].address_bbox(paper_item.address)
+        zoomed_bbox = (column_bbox[0], paper_item.bbox[1], column_bbox[2], paper_item.bbox[3])
+        result = self._bbox2pixel(zoomed_bbox, paper_item.page_n)
+        return result
+
     def _paragraph2elem(self, paragraph, i):
         txt_template = '<p data-address="{}" id="txt{}">{}</p>\n'
         img_template = '<p data-address="{}" id="txt{}"><img alt="Figure" src="./{}" /></p>\n'
         if len(paragraph) == 0:
             return ""
-        address_2d = [(paper_item.page_n, *self._bbox2pixel(paper_item.bbox, paper_item.page_n)) for paper_item in paragraph]
+        address_2d = [(paper_item.page_n, *self._get_zoomed_pixel(paper_item)) for paper_item in paragraph]
         address_str = "|".join(",".join([str(i) for i in item_addr]) for item_addr in address_2d)
         if paragraph[0].type == PaperItemType.SectionHeader:
             return '<h2 data-address="{}" id="txt{}">{}</h2>\n'.format(address_str, i, self._paragraph2txt(paragraph))
@@ -197,7 +203,7 @@ class LocalHtmlPaper:
   canvas.height = leftw.clientHeight;
   rightw.style.paddingTop = String(rightw.clientHeight*(1./4.))+"px";
   rightw.style.paddingBottom = String(rightw.clientHeight*(3./4.))+"px";
-  var c = canvas.getContext('2d');
+  // var c = canvas.getContext('2d');
 
   // load all images
   // 直接ファイルリストをスクリプトに埋め込む
@@ -206,10 +212,7 @@ class LocalHtmlPaper:
   var paper_imgs = {};
   var loaded_img_count = 0;
   function on_img_loaded(){
-    // zoom_rate = Math.min(canvas.width/paper_imgs[0].width, canvas.height/paper_imgs[0].height);
-    // // 拡大
-    // c.scale(zoom_rate, zoom_rate);
-    // c.drawImage(paper_imgs[0], 0, 0);
+    onscrollR();
   }
   for(i = 0; i < img_pathes.length; i++){
     const img = new Image();
@@ -239,11 +242,11 @@ class LocalHtmlPaper:
     return parse_address(elem.getAttribute("data-address"));
   }
 
-
-  const get_papers_transform = function(paper_size, canvas_size, target, center_height){
-    const zoom = canvas_size[0]/target[2];
-    const content_top = center_height/zoom - target[3]/2.;
-    const content_left = 0;
+  const get_papers_transform = function(paper_size, canvas_size, target, center_height, delta_rate){
+    const pad_rate = 0.05;
+    const zoom = canvas_size[0]/(target[2]*(1+pad_rate*2));
+    const content_top = center_height/zoom - target[3]*(delta_rate-0.5);
+    const content_left = pad_rate*target[2];
     const left = -target[0] + content_left;
     const top = -target[1] + content_top;
     return [zoom, left, top];
@@ -252,6 +255,7 @@ class LocalHtmlPaper:
   var now_addr = [];
   var now_trsf = [];
   const onscrollR = function() {
+   var c = canvas.getContext('2d');
    const top_ = split.scrollTop;
    const bottom_ = top_ + split.clientHeight;
    const center_ = (2/3) * top_ + (1/3) * bottom_;
@@ -273,7 +277,7 @@ class LocalHtmlPaper:
           [paper_img.width, paper_img.height],
           [canvas.width, canvas.height],
           [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
-          center_);
+          center_, delta_rate);
         now_trsf = trsf;
         c.fillStyle = "rgb(255, 255, 255)";
         c.fillRect(0, 0, canvas.width, canvas.height);

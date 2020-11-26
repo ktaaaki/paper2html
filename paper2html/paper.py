@@ -64,6 +64,7 @@ class PaperItem:
         self.type = item_type
         self.separated = separated
         self.url = None
+        self.address = None
 
 
 @has_global_id
@@ -167,6 +168,7 @@ class PaperPage:
                 page_address = PageAddress.Foot
             else:
                 page_address = PageAddress.Etc
+            item.address = page_address
             self.sorted_items.append((page_address, -bbox[3], bbox[0], item))
         # 1段組みの場合
         if len([item for addr, _, _, item in self.sorted_items
@@ -176,6 +178,7 @@ class PaperPage:
             self.right_bbox = (max_x, page_bbox[1] + 1, max_x, page_bbox[3] - 1)
             self.footer_bbox = (min_x, page_bbox[1], max_x, page_bbox[1])
             for i in range(len(self.sorted_items)):
+                self.sorted_items[i][-1].address = PageAddress.Left
                 self.sorted_items[i] = (PageAddress.Left, *self.sorted_items[i][1:])
             # TODO: ページフッターを認識して段落間から除去する
             # 上下のラインを検出したいところ（なければheader, footerはない，ともいいきれない)
@@ -198,6 +201,7 @@ class PaperPage:
             addr, mb3, b0, item = self.sorted_items.pop(0)
             overlaps = self._pop_overlaps(item, addr, line_margin)
             unified = self._make_unified(overlaps)
+            unified.address = addr
             unified_items.append((addr, -unified.bbox[3], unified.bbox[0], unified))
             # for used_item in overlaps:
             #     self.sorted_items.remove((addr, -used_item.bbox[3], used_item.bbox[0], used_item))
@@ -325,6 +329,7 @@ class PaperPage:
                             item_.type = PaperItemType.Part_of_Object
                             collapsed_texts.append(item_.text)
                         new_item.text = re.sub(r"\n", "", "".join(collapsed_texts)) + "\n"
+                        new_item.address = address
                         self.sorted_items.insert(i, (address, -composed_bbox[3], composed_bbox[0], new_item))
                         items_count += 1
                 else:
