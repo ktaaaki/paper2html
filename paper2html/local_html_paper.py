@@ -3,7 +3,7 @@ import os
 import math
 from os.path import join as pjoin
 from glob import glob
-from .paper import PaperItemType
+from .paper import PaperItemType, BBox
 
 
 class LocalHtmlPaper:
@@ -47,7 +47,8 @@ class LocalHtmlPaper:
 
     def _get_zoomed_pixel(self, paper_item):
         column_bbox = self.paper.pages[paper_item.page_n].address_bbox(paper_item.address)
-        zoomed_bbox = (column_bbox[0], paper_item.bbox[1], column_bbox[2], paper_item.bbox[3])
+        assert column_bbox.orig == 'LB' and paper_item.bbox.orig == 'LB'
+        zoomed_bbox = BBox((column_bbox.left, paper_item.bbox.bottom, column_bbox.right, paper_item.bbox.top), orig='LB')
         result = self._bbox2pixel(zoomed_bbox, paper_item.page_n)
         return result
 
@@ -175,8 +176,8 @@ class LocalHtmlPaper:
   </head>
   <body>
     <div id="split">
-      <header style="position: fixed;">
-        <a href="{}">[Original PDF]</a>
+      <!--<header id="header" style="position: fixed;">
+        <a href="{}">[Original PDF]</a>-->
       </header><br />
       <div id="left">
           <canvas id="canvas"></canvas>
@@ -198,19 +199,22 @@ class LocalHtmlPaper:
   const leftw = document.getElementById('left');
   const split = document.getElementById( 'split' );
 
-  var canvas = document.getElementById('canvas');
-  canvas.width = leftw.clientWidth;
-  canvas.height = leftw.clientHeight;
-  rightw.style.paddingTop = String(rightw.clientHeight*(1./4.))+"px";
-  rightw.style.paddingBottom = String(rightw.clientHeight*(3./4.))+"px";
-  // var c = canvas.getContext('2d');
+  let canvas = document.getElementById('canvas');
+
+  function fit_canvas(){
+   canvas.width = leftw.clientWidth;
+   canvas.height = leftw.clientHeight;
+   rightw.style.paddingTop = String(rightw.clientHeight*(1./4.))+"px";
+   rightw.style.paddingBottom = String(rightw.clientHeight*(3./4.))+"px";
+  }
+  fit_canvas();
 
   // load all images
   // 直接ファイルリストをスクリプトに埋め込む
   const img_pathes = ####;
 
-  var paper_imgs = {};
-  var loaded_img_count = 0;
+  let paper_imgs = {};
+  let loaded_img_count = 0;
   function on_img_loaded(){
     onscrollR();
   }
@@ -227,7 +231,7 @@ class LocalHtmlPaper:
     }
   }
 
-  const parse_address = function(str_addr) {
+  function parse_address(str_addr) {
     return str_addr.split('|').map(each_addr => {
       const num_strs = each_addr.split(',');
       const page_n = parseInt(num_strs[0]);
@@ -238,53 +242,134 @@ class LocalHtmlPaper:
       return [page_n, left, top, right, bottom];
     });
   }
-  const get_address = function(elem) {
+  function get_address(elem) {
     return parse_address(elem.getAttribute("data-address"));
   }
 
-  const get_papers_transform = function(paper_size, canvas_size, target, center_height, delta_rate){
+  function get_papers_transform(paper_size, canvas_size, target, center_height, delta_rate){
+    const header_height = 0;//document.getElementById('header').clientHeight;
+    // canvasはheader分座標がズレないので左右で合わせる必要がある
+    const canvas_center_height = center_height - header_height;
+
+    // targetは画像pixelの座標系, canvas drawもpixel座標
+    const target_left = target[0];
+    const target_top = target[1];
+    const target_width = target[2];
+    const target_height = target[3];
+
     const pad_rate = 0.05;
-    const zoom = canvas_size[0]/(target[2]*(1+pad_rate*2));
-    const content_top = center_height/zoom - target[3]*(delta_rate-0.5);
-    const content_left = pad_rate*target[2];
-    const left = -target[0] + content_left;
-    const top = -target[1] + content_top;
+    const zoom = canvas_size[0] / ((1 + 2 * pad_rate) * target_width);
+    const left = -target_left + pad_rate * target_width;
+    const top = -target_top - target_height * delta_rate + canvas_center_height / zoom;
     return [zoom, left, top];
+    //// pixel座標でtargetのtop_leftを原点に持ってくる
+    //const paper_left = -target_left;
+    //// スクロール位置を原点に持ってくる
+    //const paper_top = -target_top - target_height*delta_rate;
+    //// paddingに合わせてズームし，位置をあわせる
+    //const paper_zoom = paper_size[0] / ((1+pad_rate*2) * target_width);
+    //const canvas_zoom = canvas_size[0] / paper_size[0];
+
+    //const top = paper_top / paper_zoom + canvas_center_height / canvas_zoom;
+    //const left = (paper_left + pad_rate * target_width) / paper_zoom;
+    //return [canvas_zoom * paper_zoom, left, top];
   }
 
-  var now_addr = [];
-  var now_trsf = [];
-  const onscrollR = function() {
-   var c = canvas.getContext('2d');
+  function onscroll_between_txt_line(center_, delta_rate, txt_line){
+    //const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
+    //const delta_ = delta_rate * img_line.offsetHeight;
+    //leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
+    const addrs = get_address(txt_line);
+    const addr = addrs[0];
+    //now_addr = addr;
+    const paper_img = paper_imgs[addr[0]];
+    const trsf = get_papers_transform(
+      [paper_img.width, paper_img.height],
+      [canvas.width, canvas.height],
+      [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
+      center_, delta_rate);
+    //now_trsf = trsf;
+    return [trsf, paper_img];
+  }
+
+  function blend_trsf(trsf0, trsf1, delta_rate){
+    return [(1-delta_rate) * trsf0[0] + delta_rate * trsf1[0],
+            (1-delta_rate) * trsf0[1] + delta_rate * trsf1[1],
+            (1-delta_rate) * trsf0[2] + delta_rate * trsf1[2]]
+  }
+
+  function draw_paper(c, trsf, paper_img){
+    c.fillStyle = "rgb(255, 255, 255)";
+    c.fillRect(0, 0, canvas.width, canvas.height);
+    c.save();
+    c.scale(trsf[0], trsf[0]);
+    c.drawImage(paper_img, trsf[1], trsf[2]);
+    c.restore();
+
+    //c.fillRect(80, 80, 200, 200);
+    //c.fillStyle = "rgb(0, 0, 0)";
+    //c.fillText("rate: " + delta_rate.toString(), 100, 100);
+    //c.fillText("height: " + (addr[4]-addr[2]).toString(), 100, 120);
+    //c.fillText("zoom: " + trsf[0].toString(), 100, 140);
+    //c.fillText("paper_width: " + paper_img.width.toString(), 100, 160);
+    //c.fillText("paper_height: " + paper_img.height.toString(), 100, 180);
+    //c.fillText("canvas_w: " + canvas.width.toString(), 100, 200);
+    //c.fillText("canvas_h: " + canvas.height.toString(), 100, 220);
+    //c.fillText("y: " + trsf[2].toString(), 100, 240);
+  }
+  //var now_addr = [];
+  //var now_trsf = [];
+  function onscrollR() {
+   fit_canvas();
+   let c = canvas.getContext('2d');
    const top_ = split.scrollTop;
    const bottom_ = top_ + split.clientHeight;
    const center_ = (2/3) * top_ + (1/3) * bottom_;
 
-   for(var i = 0; i < rightw.children.length; i++) {
+   for(let i = 0; i < rightw.children.length; i++) {
     const txt_line = rightw.children[i];
     const rect = txt_line.getBoundingClientRect();
       if (rect.top <= center_ && center_ <= rect.bottom)
       {
         const delta_rate = (center_ - rect.top) / rect.height;
-        //const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
-        //const delta_ = delta_rate * img_line.offsetHeight;
-        //leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
-        const addrs = get_address(txt_line);
-        const addr = addrs[0];
-        now_addr = addr;
-        const paper_img = paper_imgs[addr[0]];
-        const trsf = get_papers_transform(
-          [paper_img.width, paper_img.height],
-          [canvas.width, canvas.height],
-          [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
-          center_, delta_rate);
-        now_trsf = trsf;
-        c.fillStyle = "rgb(255, 255, 255)";
-        c.fillRect(0, 0, canvas.width, canvas.height);
-        c.save();
-        c.scale(trsf[0], trsf[0]);
-        c.drawImage(paper_img, trsf[1], trsf[2]);
-        c.restore();
+        let [trsf, paper_img] = onscroll_between_txt_line(center_, delta_rate, txt_line);
+        draw_paper(c, trsf, paper_img);
+        break;
+      }
+      let prev_line = null;
+      let prev_bottom = 0;
+      if (i != 0){
+        prev_line = rightw.children[i - 1];
+        prev_bottom = prev_line.getBoundingClientRect().bottom;
+      }
+      if (center_ <= rect.top && (i == 0 || prev_bottom <= center_))
+      {
+        let [trsf1, paper_img1] = onscroll_between_txt_line(center_, 0, txt_line);
+        if (i == 0){
+          draw_paper(c, trsf1, paper_img1);
+        } else {
+          let [trsf0, paper_img0] = onscroll_between_txt_line(center_, 1, prev_line);
+          const delta_rate = (center_ - prev_bottom) / (rect.top - prev_bottom);
+          draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), paper_img0);
+        }
+        break;
+      }
+      let next_line = null;
+      let next_top = 0;
+      if (i != rightw.children.length - 1){
+        next_line = rightw.children[i + 1];
+        next_top = next_line.getBoundingClientRect().top;
+      }
+      if (rect.bottom <= center_ && (i == rightw.children.length - 1 || center_ <= next_top))
+      {
+        let [trsf0, paper_img0] = onscroll_between_txt_line(center_, 1, txt_line);
+        if (i == rightw.children.length - 1){
+          draw_paper(c, trsf0, paper_img0);
+        } else {
+          let [trsf1, paper_img1] = onscroll_between_txt_line(center_, 0, next_line);
+          const delta_rate = (center_ - rect.bottom) / (next_top - rect.bottom);
+          draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), paper_img0);
+        }
         break;
       }
     }
@@ -316,7 +401,8 @@ class LocalHtmlPaper:
 
     def _bbox2pixel(self, bbox, page_n):
         page = self.paper.pages[page_n]
-        return (*page._pt2pixel(bbox[0], bbox[3]), *page._pt2pixel(bbox[2], bbox[1]))
+        assert bbox.orig == 'LB'
+        return (*page._pt2pixel(bbox.left, bbox.top), *page._pt2pixel(bbox.right, bbox.bottom))
 
     def export(self):
         css_content = '''
@@ -368,6 +454,7 @@ html, body {
     overflow: auto;
     box-sizing: border-box;
     z-index: 1;
+    padding: 0%;
 }
 #right{
     float: left;
