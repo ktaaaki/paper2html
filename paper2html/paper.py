@@ -19,14 +19,92 @@ def has_global_id(target_cls, name='idx'):
     return target_cls
 
 
-def unify_bboxes(bboxes):
-    bbox = [math.inf, math.inf, -math.inf, -math.inf]
-    for item_bbox in bboxes:
-        bbox[0] = min(bbox[0], item_bbox[0])
-        bbox[1] = min(bbox[1], item_bbox[1])
-        bbox[2] = max(bbox[2], item_bbox[2])
-        bbox[3] = max(bbox[3], item_bbox[3])
-    return bbox
+class BBox:
+    def __init__(self, raw_bbox, orig='LT'):
+        self.orig = orig
+        if orig == 'LT':
+            self.left = raw_bbox[0]
+            self.top = raw_bbox[1]
+            self.right = raw_bbox[2]
+            self.bottom = raw_bbox[3]
+        elif orig == 'LB':
+            self.left = raw_bbox[0]
+            self.bottom = raw_bbox[1]
+            self.right = raw_bbox[2]
+            self.top = raw_bbox[3]
+        else:
+            raise NotImplementedError
+
+    @property
+    def width(self):
+        return abs(self.right - self.left)
+
+    @property
+    def height(self):
+        return abs(self.bottom - self.top)
+
+    def unify(self, other):
+        if self.orig != other.orig:
+            raise ValueError(f"origin is not the same. {self.orig} vs {other.orig}")
+        if self.orig == 'LT':
+            left = min(self.left, other.left)
+            top = min(self.top, other.top)
+            right = max(self.right, other.right)
+            bottom = max(self.bottom, other.bottom)
+            return BBox([left, top, right, bottom], orig='LT')
+        if self.orig == 'LB':
+            left = min(self.left, other.left)
+            bottom = min(self.bottom, other.bottom)
+            right = max(self.right, other.right)
+            top = max(self.top, other.top)
+            return BBox([left, bottom, right, top], orig='LB')
+        raise NotImplementedError
+
+    @staticmethod
+    def unify_bboxes(bboxes):
+        assert len(bboxes) > 0
+        bbox = BBox([math.inf, math.inf, -math.inf, -math.inf], orig=bboxes[0].orig)
+        for item in bboxes:
+            bbox = bbox.unify(item)
+        return bbox
+
+    def inflate(self, d):
+        if self.orig == 'LB':
+            return BBox([self.left - d, self.bottom - d, self.right + d, self.top + d], orig='LB')
+        if self.orig == 'LT':
+            return BBox([self.left - d, self.top - d, self.right + d, self.bottom + d], orig='LT')
+        raise NotImplementedError
+
+    @staticmethod
+    def center_dist(bbox1, bbox2):
+        x1 = bbox1.left + bbox1.right
+        y1 = bbox1.bottom + bbox1.top
+        x2 = bbox2.left + bbox2.right
+        y2 = bbox2.bottom + bbox2.top
+        return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)/2.
+
+    @staticmethod
+    def collided(bbox0, bbox1):
+        if bbox0.orig != bbox1.orig:
+            raise ValueError(f"origin is not the same. {bbox0.orig} vs {bbox1.orig}")
+        if bbox0.orig == 'LT':
+            bbox0_ = (bbox0.left, bbox0.top, bbox0.right, bbox0.bottom)
+            bbox1_ = (bbox1.left, bbox1.top, bbox1.right, bbox1.bottom)
+        elif bbox0.orig == 'LB':
+            bbox0_ = (bbox0.left, bbox0.bottom, bbox0.right, bbox0.top)
+            bbox1_ = (bbox1.left, bbox1.bottom, bbox1.right, bbox1.top)
+        else:
+            raise NotImplementedError
+
+        def collided_in_plane(bbox0, bbox1, offset):
+            my_head_elm = bbox0[offset]
+            my_tail_elm = bbox0[offset + 2]
+            other_head_elm = bbox1[offset]
+            other_tail_elm = bbox1[offset + 2]
+            collided = abs((my_head_elm + my_tail_elm) - (other_head_elm + other_tail_elm)) <= \
+                       (my_tail_elm - my_head_elm) + (other_tail_elm - other_head_elm)
+            return collided
+        return all(collided_in_plane(bbox0_, bbox1_, offset) for offset in [0, 1])
 
 
 class PageAddress(IntEnum):
@@ -53,16 +131,40 @@ class PaperItemType(IntEnum):
 
 @has_global_id
 class PaperItem:
-    def __init__(self, bbox, text, item_type, separated=False):
+    def __init__(self, page_n, bbox, text, item_type, separated=False):
         bbox_ = bbox
-        if bbox[2] - bbox[0] < 0 or bbox[3] - bbox[1] < 0:
+        if bbox.right - bbox.left < 0 or bbox.top - bbox.bottom < 0:
             # 幅0でclipするとエラーなので膨らませておく
-            bbox_ = (0, 0, 1, 1)
+            bbox_ = BBox((0, 0, 1, 1), orig='LB')
         self.bbox = bbox_
+        self.page_n = page_n
         self.text = text
         self.type = item_type
         self.separated = separated
         self.url = None
+        self.address = None
+
+
+@has_global_id
+class Paragraph:
+    """
+    １つの段落単位を表す．（PaperItemの段落は1ページに収まる段落の一部）
+    段落だけでなく，図やセクションヘッダも１つの段落単位とする．
+    """
+    def __init__(self, paper_items):
+        self.paper_items = paper_items
+
+    def append(self, paper_item):
+        self.paper_items.append(paper_item)
+
+    def extend(self, paragraph):
+        self.paper_items.extend(paragraph.paper_items)
+
+    def __getitem__(self, item):
+        return self.paper_items[item]
+
+    def __len__(self):
+        return len(self.paper_items)
 
 
 @has_global_id
@@ -87,6 +189,8 @@ class PaperPage:
         self.body_paragraphs = []
         self.captions = []
 
+        self.image = None
+
     def recognize(self, line_height, line_margin):
         """
         pdfminerから読み取られた描画オブジェクトを論文形式の文書として認識する
@@ -100,57 +204,60 @@ class PaperPage:
         self._arrange_paragraphs()
 
     def _sort_items(self):
+        # entry: (address, -top, left, paper_item)
         self.sorted_items = sorted(self.sorted_items, key=lambda entry: entry[:-1])
 
     def _address_items(self):
         # 2段組みだと仮定する
         page_bbox = self.bbox
         # TODO: 多段組の行頭検出をソフトにする
-        center_x = (page_bbox[0] + page_bbox[2]) / 2.
-        min_x, max_x = (center_x, center_x)
-        min_y, max_y = (page_bbox[1], page_bbox[3])
+        center_x = (page_bbox.left + page_bbox.right) / 2.
+        left_side, right_side = (center_x, center_x)
+        bottom_side, top_side = (page_bbox.bottom, page_bbox.top)
         # 上と下から順に(目を閉じるような順で)itemを見て，centerlineを超える上下のitemでheader,footer領域を決定する
-        eye_closing_ordered = sorted(self.items, key=lambda item:
-        min(item.bbox[1] - page_bbox[1],
-            page_bbox[3] - item.bbox[3]))
+        eye_closing_ordered = sorted(
+            self.items, key=lambda item: min(item.bbox.bottom - page_bbox.bottom,
+                                             page_bbox.top - item.bbox.top))
         for item in eye_closing_ordered:
             if item.type == PaperItemType.VTextBox:
                 continue
             bbox = item.bbox
-            min_x = min(min_x, bbox[0])
-            max_x = max(max_x, bbox[2])
-            if bbox[0] < center_x < bbox[2]:
-                if abs(bbox[1] - min_y) > abs(max_y - bbox[3]):
-                    max_y = min(max_y, bbox[1])
+            left_side = min(left_side, bbox.left)
+            right_side = max(right_side, bbox.right)
+            if bbox.left < center_x < bbox.right:
+                if abs(bbox.bottom - bottom_side) > abs(top_side - bbox.top):
+                    top_side = min(top_side, bbox.bottom)
                 else:
-                    min_y = max(min_y, bbox[3])
+                    bottom_side = max(bottom_side, bbox.top)
 
-        self.header_bbox = (min_x, max_y, max_x, page_bbox[3])
-        self.left_bbox = (min_x, min_y + 1, center_x, max_y - 1)
-        self.right_bbox = (center_x, min_y + 1, max_x, max_y - 1)
-        self.footer_bbox = (min_x, page_bbox[1], max_x, min_y)
+        self.header_bbox = BBox((left_side, top_side, right_side, page_bbox.top), orig='LB')
+        self.left_bbox = BBox((left_side, bottom_side + 1, center_x, top_side - 1), orig='LB')
+        self.right_bbox = BBox((center_x, bottom_side + 1, right_side, top_side - 1), orig='LB')
+        self.footer_bbox = BBox((left_side, page_bbox.bottom, right_side, bottom_side), orig='LB')
 
         for item in self.items:
             bbox = item.bbox
-            if self._collided(bbox, self.header_bbox):
+            if BBox.collided(bbox, self.header_bbox):
                 page_address = PageAddress.Head
-            elif self._collided(bbox, self.left_bbox):
+            elif BBox.collided(bbox, self.left_bbox):
                 page_address = PageAddress.Left
-            elif self._collided(bbox, self.right_bbox):
+            elif BBox.collided(bbox, self.right_bbox):
                 page_address = PageAddress.Right
-            elif self._collided(bbox, self.footer_bbox):
+            elif BBox.collided(bbox, self.footer_bbox):
                 page_address = PageAddress.Foot
             else:
                 page_address = PageAddress.Etc
-            self.sorted_items.append((page_address, -bbox[3], bbox[0], item))
+            item.address = page_address
+            self.sorted_items.append((page_address, -bbox.top, bbox.left, item))
         # 1段組みの場合
         if len([item for addr, _, _, item in self.sorted_items
                 if addr == PageAddress.Left or addr == PageAddress.Right]) == 0:
-            self.header_bbox = (min_x, page_bbox[3], max_x, page_bbox[3])
-            self.left_bbox = (min_x, page_bbox[1] + 1, max_x - 1, page_bbox[3] - 1)
-            self.right_bbox = (max_x, page_bbox[1] + 1, max_x, page_bbox[3] - 1)
-            self.footer_bbox = (min_x, page_bbox[1], max_x, page_bbox[1])
+            self.header_bbox = BBox((left_side, page_bbox.top, right_side, page_bbox.top), orig='LB')
+            self.left_bbox = BBox((left_side, page_bbox.bottom + 1, right_side - 1, page_bbox.top - 1), orig='LB')
+            self.right_bbox = BBox((right_side, page_bbox.bottom + 1, right_side, page_bbox.top - 1), orig='LB')
+            self.footer_bbox = BBox((left_side, page_bbox.bottom, right_side, page_bbox.bottom), orig='LB')
             for i in range(len(self.sorted_items)):
+                self.sorted_items[i][-1].address = PageAddress.Left
                 self.sorted_items[i] = (PageAddress.Left, *self.sorted_items[i][1:])
             # TODO: ページフッターを認識して段落間から除去する
             # 上下のラインを検出したいところ（なければheader, footerはない，ともいいきれない)
@@ -173,9 +280,10 @@ class PaperPage:
             addr, mb3, b0, item = self.sorted_items.pop(0)
             overlaps = self._pop_overlaps(item, addr, line_margin)
             unified = self._make_unified(overlaps)
-            unified_items.append((addr, -unified.bbox[3], unified.bbox[0], unified))
+            unified.address = addr
+            unified_items.append((addr, -unified.bbox.top, unified.bbox.left, unified))
             # for used_item in overlaps:
-            #     self.sorted_items.remove((addr, -used_item.bbox[3], used_item.bbox[0], used_item))
+            #     self.sorted_items.remove((addr, -used_item.bbox.top, used_item.bbox.left, used_item))
         self.sorted_items = unified_items
 
     def _pop_overlaps(self, item, address, line_margin):
@@ -188,7 +296,7 @@ class PaperPage:
                 continue
             if self._overlaps_collided(overlaps, unified_bbox, other, line_margin):
                 overlaps.append(other)
-                unified_bbox = unify_bboxes((unified_bbox, other.bbox))
+                unified_bbox = unified_bbox.unify(other.bbox)
                 remove_ids.insert(0, i)
         for i in remove_ids:
             self.sorted_items.pop(i)
@@ -200,7 +308,7 @@ class PaperPage:
                 continue
             if self._overlaps_collided(overlaps, unified_bbox, other, line_margin):
                 overlaps.append(other)
-                unified_bbox = unify_bboxes((unified_bbox, other.bbox))
+                unified_bbox = unified_bbox.unify(other.bbox)
                 remove_ids.append(i)
         for i in remove_ids:
             self.sorted_items.pop(i)
@@ -214,7 +322,7 @@ class PaperPage:
                          PaperItemType.TextBox, PaperItemType.Caption,
                          PaperItemType.Char, PaperItemType.VTextBox}
         texts = []
-        for item in sorted(overlaps, key=lambda i: -i.bbox[3]):
+        for item in sorted(overlaps, key=lambda i: -i.bbox.top):
             if item.type in content_types:
                 texts.append(item.text)
             if item.type == PaperItemType.TextBox or item.type == PaperItemType.Paragraph:
@@ -224,41 +332,33 @@ class PaperPage:
         text = ''.join(texts)
         # 統合が終わったあとに最小限のbboxに整形する
         # TODO: 数式の一部が切れる
-        bbox = unify_bboxes(item.bbox for item in overlaps)
-        result = PaperItem(bbox, text, PaperItemType.Paragraph, separated)
+        bbox = BBox.unify_bboxes([item.bbox for item in overlaps])
+        result = PaperItem(self.page_n, bbox, text, PaperItemType.Paragraph, separated)
         return result
 
     def _get_inflated_bbox(self, bbox, address):
         # 幅いっぱいにbboxを拡大する
-        result = [*bbox]
+        result = BBox((bbox.left, bbox.bottom, bbox.right, bbox.top), orig='LB')
         frame_bbox = self.address_bbox(address)
-        result[0] = frame_bbox[0]
-        result[2] = frame_bbox[2]
+        result.left = frame_bbox.left
+        result.right = frame_bbox.right
         return result
 
     def _overlaps_collided(self, overlaps, bbox, item, line_margin):
         # TODO: カラム外の縦書きテキストを構成から分離する
         if item.type == PaperItemType.VTextBox:
             return False
-        if not self._range_collided(bbox[1], bbox[3], item.bbox[1] - line_margin, item.bbox[3] + line_margin):
+        if not self._range_collided(bbox.bottom, bbox.top, item.bbox.bottom - line_margin, item.bbox.top + line_margin):
             return False
-        if self._range_collided(bbox[1], bbox[3], item.bbox[1], item.bbox[3]):
+        if self._range_collided(bbox.bottom, bbox.top, item.bbox.bottom, item.bbox.top):
             return True
         # LTLineなどに対してはline_marginを使用しない．textbox間でのみ使用する
-        nearest_item = sorted(overlaps, key=lambda i: self._bbox_dist(i.bbox, item.bbox))[0]
+        nearest_item = sorted(overlaps, key=lambda i: BBox.center_dist(i.bbox, item.bbox))[0]
         return not self._is_split_type(nearest_item.type) and self._is_split_type(item.type)
 
     @staticmethod
     def _range_collided(a, b, c, d):
         return abs(a + b - c - d) < abs(b - a) + abs(d - c)
-
-    @staticmethod
-    def _bbox_dist(bbox1, bbox2):
-        x1 = bbox1[0] + bbox1[2]
-        y1 = bbox1[1] + bbox1[3]
-        x2 = bbox2[0] + bbox2[2]
-        y2 = bbox2[1] + bbox2[3]
-        return (x1 - x2) ** 2 + (y1 - y2) ** 2
 
     @staticmethod
     def _is_split_type(item_type):
@@ -267,12 +367,12 @@ class PaperPage:
         return item_type in split_type
 
     def _recognize_items(self):
-        image = Image.open(pjoin(self.image_dir, sorted(os.listdir(self.image_dir))[self.page_n]))
+        self.image = Image.open(pjoin(self.image_dir, sorted(os.listdir(self.image_dir))[self.page_n]))
         items_count = len(self.sorted_items)
         i = 0
         while i < items_count:
             address, _, _, item = self.sorted_items[i]
-            filename = self._crop_image(image, item.bbox)
+            filename = self._crop_image(item.bbox)
             item.url = filename
             if item.type == PaperItemType.TextBox:
                 if self._is_section_header(item.text):
@@ -288,36 +388,43 @@ class PaperPage:
                         item.type = PaperItemType.Part_of_Object
                     else:
                         composed_bbox = self._get_composed_bbox(i, address, self.address_bbox(address))
-                        if composed_bbox[1] >= composed_bbox[3]:
+                        if composed_bbox.bottom >= composed_bbox.top:
                             item.type = PaperItemType.Paragraph
                             i += 1
                             continue
-                        new_item = PaperItem(composed_bbox, " ", PaperItemType.Paragraph)
-                        filename = self._crop_image(image, new_item.bbox)
+                        new_item = PaperItem(self.page_n, composed_bbox, " ", PaperItemType.Paragraph)
+                        filename = self._crop_image(new_item.bbox)
                         new_item.url = filename
                         collapsed_texts = []
                         for item_ in self._collided_items(new_item.bbox):
                             item_.type = PaperItemType.Part_of_Object
                             collapsed_texts.append(item_.text)
                         new_item.text = re.sub(r"\n", "", "".join(collapsed_texts)) + "\n"
-                        self.sorted_items.insert(i, (address, -composed_bbox[3], composed_bbox[0], new_item))
+                        new_item.address = address
+                        self.sorted_items.insert(i, (address, -composed_bbox.top, composed_bbox.left, new_item))
                         items_count += 1
                 else:
                     item.type = PaperItemType.Paragraph
             i += 1
 
     def _collided_items(self, bbox):
-        return (item for _, _, _, item in self.sorted_items if self._collided(item.bbox, bbox))
+        return (item for _, _, _, item in self.sorted_items if BBox.collided(item.bbox, bbox))
 
-    def _pt2pixel(self, x, y, image):
-        xsize, ysize = image.size
-        xrate, yrate = (xsize / (self.bbox[2] - self.bbox[0]), ysize / (self.bbox[3] - self.bbox[1]))
-        return int((x - self.bbox[0]) * xrate), int((self.bbox[3] - y) * yrate)
+    def _pt2pixel(self, x, y):
+        """
+        x, yの原点はpdfと同じLBであることを仮定
+        """
+        assert self.bbox.orig == 'LB'
+        xsize, ysize = self.image.size
+        xrate = (x - self.bbox.left) / self.bbox.width
+        yrate = (self.bbox.top - y) / self.bbox.height
+        return int(xsize * xrate), int(ysize * yrate)
 
-    def _crop_image(self, image, bbox):
-        cropbox = (*self._pt2pixel(bbox[0], bbox[3], image), *self._pt2pixel(bbox[2], bbox[1], image))
-        cropped = image.crop(cropbox)
-        filename = pjoin(self.crop_dir, "item_%d_%d_%d_%d_%d.jpg" % (self.page_n, bbox[0], bbox[1], bbox[2], bbox[3]))
+    def _crop_image(self, bbox):
+        assert bbox.orig == 'LB'
+        cropbox = (*self._pt2pixel(bbox.left, bbox.top), *self._pt2pixel(bbox.right, bbox.bottom))
+        cropped = self.image.crop(cropbox)
+        filename = pjoin(self.crop_dir, "item_%d_%d_%d_%d_%d.png" % (self.page_n, bbox.left, bbox.bottom, bbox.right, bbox.top))
         if cropped.width == 0 or cropped.height == 0:
             cropped = Image.new('RGB', (1, 1), (0xdd, 0xdd, 0xdd))
         cropped.save(filename)
@@ -388,13 +495,13 @@ class PaperPage:
         """
         if not text:
             return True
-        width = address_bbox[2] - address_bbox[0]
+        width = address_bbox.right - address_bbox.left
         CENTER_RATE = 0.1
-        left_centered = (bbox[0] - address_bbox[0] > CENTER_RATE * width)
-        right_centered = (address_bbox[2] - bbox[2] > CENTER_RATE * width)
+        left_centered = (bbox.left - address_bbox.left > CENTER_RATE * width)
+        right_centered = (address_bbox.right - bbox.right > CENTER_RATE * width)
         CENTER_RATE = 0.35
-        left_centered2 = (bbox[0] - address_bbox[0] > CENTER_RATE * width)
-        right_centered2 = (address_bbox[2] - bbox[2] > CENTER_RATE * width)
+        left_centered2 = (bbox.left - address_bbox.left > CENTER_RATE * width)
+        right_centered2 = (address_bbox.right - bbox.right > CENTER_RATE * width)
         has_short_line = any(len(line) < 16 for line in text.split('\n')[:-1])
         # 16文字以上の行が3行以上ある
         has_long_lines = (sum(1 for line in text.split('\n') if len(line) >= 16) >= 3)
@@ -427,21 +534,21 @@ class PaperPage:
                                      self._is_separated_paragraph(item, item_addr)))
                 if is_other_type or not self._is_centered(item.bbox, address_bbox, item.text):
                     if reverse:
-                        bound = item.bbox[1] - 1
+                        bound = item.bbox.bottom - 1
                     else:
-                        bound = item.bbox[3] + 1
+                        bound = item.bbox.top + 1
                     uncentered = item
                     break
             if not bound:
                 if reverse:
-                    bound = address_bbox[3] - 1
+                    bound = address_bbox.top - 1
                 else:
-                    bound = address_bbox[1] + 1
+                    bound = address_bbox.bottom + 1
             return bound, uncentered
         bottom, uncentered_b = get_uncentered_item_bound(i)
         top, uncentered_c = get_uncentered_item_bound(i, reverse=True)
         # assert bottom < top
-        return address_bbox[0], bottom, address_bbox[2], top
+        return BBox((address_bbox.left, bottom, address_bbox.right, top), orig='LB')
 
     def _reap_paragraphs(self, target_address, paragraphs):
         # TODO: caption判定がひどい
@@ -451,7 +558,7 @@ class PaperPage:
             if address not in target_address:
                 continue
             if item.type == PaperItemType.SectionHeader:
-                paragraphs.append([item])
+                paragraphs.append(Paragraph([item]))
                 caption_continue = False
                 paragraph_continue = False
             elif item.type == PaperItemType.Paragraph:
@@ -464,32 +571,20 @@ class PaperPage:
                     caption_continue = False
                     paragraph_continue = item.separated
                 else:
-                    paragraphs.append([item])
+                    paragraphs.append(Paragraph([item]))
                     caption_continue = False
                     paragraph_continue = item.separated
             elif item.type == PaperItemType.Caption:
-                self.captions.append([item])
+                self.captions.append(Paragraph([item]))
                 caption_continue = item.separated
                 paragraph_continue = False
             elif item.type == PaperItemType.Figure:
-                self.captions.append([item])
+                self.captions.append(Paragraph([item]))
 
     def _arrange_paragraphs(self):
         self._reap_paragraphs((PageAddress.Head,), self.headers)
         self._reap_paragraphs((PageAddress.Left, PageAddress.Right), self.body_paragraphs)
         self._reap_paragraphs((PageAddress.Foot,), self.footers)
-
-    @staticmethod
-    def _collided(bbox0, bbox1):
-        def collided_in_plane(bbox0, bbox1, offset):
-            my_head_elm = bbox0[offset]
-            my_tail_elm = bbox0[offset + 2]
-            other_head_elm = bbox1[offset]
-            other_tail_elm = bbox1[offset + 2]
-            collided = abs((my_head_elm + my_tail_elm) - (other_head_elm + other_tail_elm)) <= \
-                       (my_tail_elm - my_head_elm) + (other_tail_elm - other_head_elm)
-            return collided
-        return all(collided_in_plane(bbox0, bbox1, offset) for offset in [0, 1])
 
 
 class Paper:
@@ -497,212 +592,58 @@ class Paper:
     pdfminerの解析結果を表すクラス．
     """
     output_dir = None
-    resource_dir = None
     layout_dir = None
     # n_div_paragraph = 200
     n_div_paragraph = math.inf
 
     def __init__(self, line_height, line_margin):
         self.pages = []
-        self.arranged_paragraphs = None
         self.line_height = line_height
         self.line_margin = line_margin
+        self._paragraphs = None
 
     def add_page(self, page):
         page.recognize(self.line_height, self.line_margin)
         self.pages.append(page)
-        self.arranged_paragraphs = None
+        self._paragraphs = None
+
+    @property
+    def paragraphs(self):
+        """
+        段落のリスト．読む順序に合わせて塊ごとに並んでいる．
+        @return: list of Paragraph
+        """
+        if not self._paragraphs:
+            self._arrange_paragraphs()
+        return self._paragraphs
 
     def _arrange_paragraphs(self):
-        self.arranged_paragraphs = []
+        self._paragraphs = []
         body_separated = False
         for page in self.pages:
             # TODO: 小文字から始まる段落を前の段落に結合するべき？（現状は前段落のピリオドを手がかりにしている）
             if body_separated and page.body_paragraphs:
-                self.arranged_paragraphs[-1].extend(page.body_paragraphs[0])
+                self._paragraphs[-1].extend(page.body_paragraphs[0])
 
-            self.arranged_paragraphs.extend(page.headers)
-            self.arranged_paragraphs.extend(page.captions)
+            self._paragraphs.extend(page.headers)
+            self._paragraphs.extend(page.captions)
 
             offset = 0 if not body_separated else 1
-            self.arranged_paragraphs.extend(page.body_paragraphs[offset:])
+            self._paragraphs.extend(page.body_paragraphs[offset:])
             if page.body_paragraphs:
                 body_separated = page.body_paragraphs[-1][-1].separated
 
-            self.arranged_paragraphs.extend(page.footers)
-
-    def _paragraph2txt(self, paragraph):
-        """
-        段落内の改行を取り除く．pdfからのコピペの整形に使用していたころの名残．
-        """
-        result = "".join([item.text for item in paragraph])
-        patt = '([^(.|\n)])- ([^\n])'
-        result = re.sub(patt, r'\1\2', result)
-        patt = '([^(.|\n)])-\n([^\n])'
-        result = re.sub(patt, r'\1\2', result)
-        # patt = '\.\n'
-        # result = re.sub(patt, r'.\n\n', result)
-        patt = '([^(.|\n)])\n([^\n])'
-        result = re.sub(patt, r'\1 \2', result)
-        result = re.sub("([^\\.])\n", r"\1 ", result)
-        return result + "\n"
-
-    def _paragraph2img_elem(self, paragraph, i):
-        img_template = '<p id="img{}"><img alt="Figure" src="./{}" /></p>\n'
-        if paragraph[0].type == PaperItemType.Figure:
-            return img_template.format(i, os.path.relpath(paragraph[0].url, self.output_dir))
-        else:
-            return "\n".join([img_template.format(i, os.path.relpath(item.url, self.output_dir)) for item in paragraph])
-
-    def _paragraph2txt_elem(self, paragraph, i):
-        txt_template = '<p id="txt{}">{}</p>\n'
-        if len(paragraph) == 0:
-            return ""
-        if paragraph[0].type == PaperItemType.SectionHeader:
-            return '<h2 id="txt{}">{}</h2>\n'.format(i, self._paragraph2txt(paragraph))
-        elif paragraph[0].type == PaperItemType.Figure:
-            return txt_template.format(i, "")
-        else:
-            return txt_template.format(i, self._paragraph2txt(paragraph))
-
-    def get_htmls(self, pdf_name):
-        if not self.arranged_paragraphs:
-            self._arrange_paragraphs()
-
-        def chunks(list, n):
-            if n == math.inf:
-                yield list
-                return
-            for i in range(0, len(list), n):
-                yield list[i:i + n]
-        javascript = r'''
-        <script language="javascript" type="text/javascript">
-            const Zoom = function(rate) {
-                for (let i = 0; i < document.images.length; i++) {
-                    document.images[i].width = document.images[i].naturalWidth * rate;
-                    document.images[i].height = document.images[i].naturalHeight * rate;
-                }
-            }
-            const rightw = document.getElementById('right');
-            const leftw = document.getElementById('left');
-            const split = document.getElementById( 'split' );
-
-            var onscrollR = function() {
-             const top_ = split.scrollTop;
-             const bottom_ = top_ + split.clientHeight;
-             const center_ = (2/3) * top_ + (1/3) * bottom_;
-             for(var i = 0; i < rightw.children.length; i++) {
-              const txt_line = rightw.children[i];
-              const rect = txt_line.getBoundingClientRect();
-                if (rect.top <= center_ && center_ <= rect.bottom)
-                {
-                  const delta_rate = (center_ - rect.top) / rect.height;
-                  const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
-                  const delta_ = delta_rate * img_line.offsetHeight;
-                  leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
-                  break;
-                }
-              }
-            }
-            if( rightw.addEventListener )
-            {
-                rightw.addEventListener('scroll', onscrollR, false);
-            }
-        </script>
-        '''
-        html_pages = []
-        for paragraphs in chunks(self.arranged_paragraphs, self.n_div_paragraph):
-            img_content = "\n\n\n\n\n".join([self._paragraph2img_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-            txt_content = "\n\n\n\n\n".join([self._paragraph2txt_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-
-            html_pages.append([img_content, txt_content])
-        css_content = '''
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            margin: 0;
-        }
-        #split{
-            height: 100%;
-        }
-        #left {
-            float: left;
-            top: 0;
-            width: 50%;
-            height: 100%;
-            overflow: auto;
-            box-sizing: border-box;
-            z-index: 1;
-            padding: 50% 1.5em 50%;
-        }
-        #right{
-            float: left;
-            top: 0;
-            left: 50%;
-            width: 50%;
-            height: 100%;
-            overflow: auto;
-            box-sizing: border-box;
-            z-index: 2;
-            background-color: #FFFFFF;
-            padding: 50% 1.5em 50%;
-        }
-        '''
-        css_filename = pjoin(self.resource_dir, 'stylesheet.css')
-        css_rel_path = pjoin('resources', 'stylesheet.css')
-        with open(css_filename, 'w', encoding="utf-8_sig") as f:
-            f.write(css_content)
-        html_files = []
-        for i, page in enumerate(html_pages):
-            top_html_template = '''
-                <!DOCTYPE html>
-                <html lang="en">
-                  <head>
-                    <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
-                    <link href="{}" rel="stylesheet" type="text/css" />
-                    <title>
-                      {}
-                    </title>
-                  </head>
-                  <body>
-                    <div id="split">
-                      <header style="position: fixed;">
-                        <input type="button" value="30%" onclick="Zoom(0.33);"/>
-                        <input type="button" value="50%" onclick="Zoom(0.5);"/>
-                        <input type="button" value="65%" onclick="Zoom(0.65);"/>
-                        <input type="button" value="100%" onclick="Zoom(1);"/>
-                        <a href="{}">[Original PDF]</a>
-                      </header><br />
-                      <div id="left">
-                          {}
-                      </div>
-                      <div id="right">
-                          {}
-                      </div>
-                    </div>
-                    {}
-                  </body>
-                </html>
-            '''
-            img_c, txt_c = page
-
-            output_filename = pdf_name + '_%d.html' % i
-            output_path = pjoin(self.output_dir, output_filename)
-            with open(output_path, 'w', encoding="utf-8_sig") as f:
-                original_link = self.output_dir + '.pdf'
-                f.write(top_html_template.format(css_rel_path, pdf_name, original_link, img_c, txt_c, javascript))
-            html_files.append(output_path)
-        return html_files
+            self._paragraphs.extend(page.footers)
 
     def _draw_rect(self, bbox, ax, ec_str="#000000"):
         import matplotlib.patches as patches
-        ax.add_patch(patches.Rectangle(xy=(bbox[0], bbox[1]),
-                                       width=bbox[2] - bbox[0], height=bbox[3] - bbox[1],
+        ax.add_patch(patches.Rectangle(xy=(bbox.left, bbox.bottom),
+                                       width=bbox.right - bbox.left, height=bbox.top - bbox.bottom,
                                        ec=ec_str, fill=False))
 
     def show_layouts(self):
         """
-        青枠：カラム構成
+        青枠：論文のカラム構成
         黒枠：テキストボックス
         赤枠：その他
         """
@@ -721,4 +662,3 @@ class Paper:
             ax.set_aspect('equal')
             plt.savefig(pjoin(self.layout_dir, 'pdf2jpn%d.png' % page_n))
             plt.clf()
-
