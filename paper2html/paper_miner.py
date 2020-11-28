@@ -1,3 +1,4 @@
+import math
 import os
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LTPage, LTChar, LTAnno, LAParams, LTTextBox, LTTextLine, LTFigure, LTLine, LTCurve, \
@@ -113,8 +114,11 @@ class PaperReader:
         """
         文字の配置行列から横書きの文字であるかを判定する
         """
-        return abs(char.matrix[0] - char.matrix[3]) < 0.1 and abs(char.matrix[1] - 0) < 0.1 \
-               and abs(char.matrix[2] - 0) < 0.1 and char.matrix[0] > 0 and char.matrix[3] > 0
+        h_rot = math.atan2(char.matrix[1], char.matrix[0])
+        v_rot = math.atan2(char.matrix[3], char.matrix[2])
+        h_rot2 = v_rot - math.pi/2
+        sigma = math.pi/8
+        return -sigma < h_rot < sigma and -sigma < h_rot2 < sigma
 
     def _textbox_is_vertical(self, text_box):
         """
