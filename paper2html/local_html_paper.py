@@ -176,8 +176,8 @@ class LocalHtmlPaper:
   </head>
   <body>
     <div id="split">
-      <!--<header id="header" style="position: fixed;">
-        <a href="{}">[Original PDF]</a>-->
+      <header id="header" style="position: fixed;">
+        <a href="{}">[Original PDF]</a>
       </header><br />
       <div id="left">
           <canvas id="canvas"></canvas>
@@ -247,7 +247,7 @@ class LocalHtmlPaper:
   }
 
   function get_papers_transform(paper_size, canvas_size, target, center_height, delta_rate){
-    const header_height = 0;//document.getElementById('header').clientHeight;
+    const header_height = document.getElementById('header').clientHeight;
     // canvasはheader分座標がズレないので左右で合わせる必要がある
     const canvas_center_height = center_height - header_height;
 
@@ -262,17 +262,6 @@ class LocalHtmlPaper:
     const left = -target_left + pad_rate * target_width;
     const top = -target_top - target_height * delta_rate + canvas_center_height / zoom;
     return [zoom, left, top];
-    //// pixel座標でtargetのtop_leftを原点に持ってくる
-    //const paper_left = -target_left;
-    //// スクロール位置を原点に持ってくる
-    //const paper_top = -target_top - target_height*delta_rate;
-    //// paddingに合わせてズームし，位置をあわせる
-    //const paper_zoom = paper_size[0] / ((1+pad_rate*2) * target_width);
-    //const canvas_zoom = canvas_size[0] / paper_size[0];
-
-    //const top = paper_top / paper_zoom + canvas_center_height / canvas_zoom;
-    //const left = (paper_left + pad_rate * target_width) / paper_zoom;
-    //return [canvas_zoom * paper_zoom, left, top];
   }
 
   function onscroll_between_txt_line(center_, delta_rate, txt_line){
@@ -319,8 +308,6 @@ class LocalHtmlPaper:
     //c.fillText("canvas_h: " + canvas.height.toString(), 100, 220);
     //c.fillText("y: " + trsf[2].toString(), 100, 240);
   }
-  //var now_addr = [];
-  //var now_trsf = [];
   function onscrollR() {
    fit_canvas();
    let c = canvas.getContext('2d');
