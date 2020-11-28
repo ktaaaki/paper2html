@@ -285,7 +285,7 @@ class LocalHtmlPaper:
     const paper_img = paper_imgs[addr[0]];
     const trsf = get_papers_transform(
       [paper_img.width, paper_img.height],
-      [canvas.width, canvas.height],
+      [leftw.clientWidth, leftw.clientHeight],
       [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
       center_, delta_rate);
     //now_trsf = trsf;
@@ -297,13 +297,15 @@ class LocalHtmlPaper:
             (1-delta_rate) * trsf0[1] + delta_rate * trsf1[1],
             (1-delta_rate) * trsf0[2] + delta_rate * trsf1[2]]
   }
-
   function draw_paper(c, trsf, paper_img){
+    canvas.width = paper_img.width*3;
+    canvas.height = paper_img.height*3;
+    leftw.scrollTo(trsf[0]*(paper_img.width-trsf[1]), trsf[0]*(paper_img.height-trsf[2]));
     c.fillStyle = "rgb(255, 255, 255)";
     c.fillRect(0, 0, canvas.width, canvas.height);
     c.save();
     c.scale(trsf[0], trsf[0]);
-    c.drawImage(paper_img, trsf[1], trsf[2]);
+    c.drawImage(paper_img, paper_img.width, paper_img.height);
     c.restore();
 
     //c.fillRect(80, 80, 200, 200);
@@ -380,6 +382,7 @@ class LocalHtmlPaper:
   }
 </script>
         '''
+        # TODO: コンテナにcanvasを載せてスクロールを実現する，コンテナにブラウザ上のサイズをもたせる．canvasのサイズは表示する論文のサイズからステップごとに変更される．
         html_pages = []
         for paragraphs in self._chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
             content = "".join(
