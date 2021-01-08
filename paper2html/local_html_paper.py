@@ -4,6 +4,13 @@ import math
 from os.path import join as pjoin
 from glob import glob
 from .paper import PaperItemType, BBox
+from . import templates
+
+
+try:
+    import importlib.resources as pkg_resources
+except ImportError:
+    import importlib_resources as pkg_resources
 
 
 class LocalHtmlPaper:
@@ -157,219 +164,14 @@ class LocalHtmlPaper:
             output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
                 original_link = self.paper.output_dir + '.pdf'
+                top_html_template = pkg_resources.read_text(templates, "two_panes_with_patch.html")
+                javascript = pkg_resources.read_text(templates, "two_panes_with_patch.js")
                 f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link,
                                                  img_column, txt_column, javascript))
             html_files.append(output_path)
         return html_files
 
     def _export_zoomed_htmls(self, css_rel_path):
-        # slot: css_rel_path, title, original url, right pane, script
-        top_html_template = '''
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
-    <link href="{}" rel="stylesheet" type="text/css" />
-    <title>
-      {}
-    </title>
-  </head>
-  <body>
-    <div id="split">
-      <header id="header" style="position: fixed;">
-        <a href="{}">[Original PDF]</a>
-      </header><br />
-      <div id="left">
-          <canvas id="canvas"></canvas>
-      </div>
-      <div id="right">
-          {}
-      </div>
-    </div>
-    {}
-  </body>
-</html>
-        '''
-        # TODO: ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
-        # slot: paper_img_paths
-        javascript = r'''
-<script language="javascript" type="text/javascript">
-  // setup base elements
-  const rightw = document.getElementById('right');
-  const leftw = document.getElementById('left');
-  const split = document.getElementById( 'split' );
-
-  let canvas = document.getElementById('canvas');
-
-  function fit_canvas(){
-   canvas.width = leftw.clientWidth;
-   canvas.height = leftw.clientHeight;
-   rightw.style.paddingTop = String(rightw.clientHeight*(1./4.))+"px";
-   rightw.style.paddingBottom = String(rightw.clientHeight*(3./4.))+"px";
-  }
-  fit_canvas();
-
-  // load all images
-  // 直接ファイルリストをスクリプトに埋め込む
-  const img_pathes = ####;
-
-  let paper_imgs = {};
-  let loaded_img_count = 0;
-  function on_img_loaded(){
-    onscrollR();
-  }
-  for(i = 0; i < img_pathes.length; i++){
-    const img = new Image();
-    const closure_i = i;
-    img.src = img_pathes[i];
-    img.onload = function(){
-        paper_imgs[closure_i] = img;
-        loaded_img_count++;
-        if(loaded_img_count == img_pathes.length){
-          on_img_loaded();
-        }
-    }
-  }
-
-  function parse_address(str_addr) {
-    return str_addr.split('|').map(each_addr => {
-      const num_strs = each_addr.split(',');
-      const page_n = parseInt(num_strs[0]);
-      const left = parseFloat(num_strs[1]);
-      const top = parseFloat(num_strs[2]);
-      const right = parseFloat(num_strs[3]);
-      const bottom = parseFloat(num_strs[4]);
-      return [page_n, left, top, right, bottom];
-    });
-  }
-  function get_address(elem) {
-    return parse_address(elem.getAttribute("data-address"));
-  }
-
-  function get_papers_transform(paper_size, canvas_size, target, center_height, delta_rate){
-    const header_height = document.getElementById('header').clientHeight;
-    // canvasはheader分座標がズレないので左右で合わせる必要がある
-    const canvas_center_height = center_height - header_height;
-
-    // targetは画像pixelの座標系, canvas drawもpixel座標
-    const target_left = target[0];
-    const target_top = target[1];
-    const target_width = target[2];
-    const target_height = target[3];
-
-    const pad_rate = 0.05;
-    const zoom = canvas_size[0] / ((1 + 2 * pad_rate) * target_width);
-    const left = -target_left + pad_rate * target_width;
-    const top = -target_top - target_height * delta_rate + canvas_center_height / zoom;
-    return [zoom, left, top];
-  }
-
-  function onscroll_between_txt_line(center_, delta_rate, txt_line){
-    //const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
-    //const delta_ = delta_rate * img_line.offsetHeight;
-    //leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
-    const addrs = get_address(txt_line);
-    const addr = addrs[0];
-    //now_addr = addr;
-    const paper_img = paper_imgs[addr[0]];
-    const trsf = get_papers_transform(
-      [paper_img.width, paper_img.height],
-      [leftw.clientWidth, leftw.clientHeight],
-      [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
-      center_, delta_rate);
-    //now_trsf = trsf;
-    return [trsf, paper_img];
-  }
-
-  function blend_trsf(trsf0, trsf1, delta_rate){
-    return [(1-delta_rate) * trsf0[0] + delta_rate * trsf1[0],
-            (1-delta_rate) * trsf0[1] + delta_rate * trsf1[1],
-            (1-delta_rate) * trsf0[2] + delta_rate * trsf1[2]]
-  }
-  function draw_paper(c, trsf, paper_img){
-    canvas.width = paper_img.width*3;
-    canvas.height = paper_img.height*3;
-    leftw.scrollTo(trsf[0]*(paper_img.width-trsf[1]), trsf[0]*(paper_img.height-trsf[2]));
-    c.fillStyle = "rgb(255, 255, 255)";
-    c.fillRect(0, 0, canvas.width, canvas.height);
-    c.save();
-    c.scale(trsf[0], trsf[0]);
-    c.drawImage(paper_img, paper_img.width, paper_img.height);
-    c.restore();
-
-    //c.fillRect(80, 80, 200, 200);
-    //c.fillStyle = "rgb(0, 0, 0)";
-    //c.fillText("rate: " + delta_rate.toString(), 100, 100);
-    //c.fillText("height: " + (addr[4]-addr[2]).toString(), 100, 120);
-    //c.fillText("zoom: " + trsf[0].toString(), 100, 140);
-    //c.fillText("paper_width: " + paper_img.width.toString(), 100, 160);
-    //c.fillText("paper_height: " + paper_img.height.toString(), 100, 180);
-    //c.fillText("canvas_w: " + canvas.width.toString(), 100, 200);
-    //c.fillText("canvas_h: " + canvas.height.toString(), 100, 220);
-    //c.fillText("y: " + trsf[2].toString(), 100, 240);
-  }
-  function onscrollR() {
-   fit_canvas();
-   let c = canvas.getContext('2d');
-   const top_ = split.scrollTop;
-   const bottom_ = top_ + split.clientHeight;
-   const center_ = (2/3) * top_ + (1/3) * bottom_;
-
-   for(let i = 0; i < rightw.children.length; i++) {
-    const txt_line = rightw.children[i];
-    const rect = txt_line.getBoundingClientRect();
-      if (rect.top <= center_ && center_ <= rect.bottom)
-      {
-        const delta_rate = (center_ - rect.top) / rect.height;
-        let [trsf, paper_img] = onscroll_between_txt_line(center_, delta_rate, txt_line);
-        draw_paper(c, trsf, paper_img);
-        break;
-      }
-      let prev_line = null;
-      let prev_bottom = 0;
-      if (i != 0){
-        prev_line = rightw.children[i - 1];
-        prev_bottom = prev_line.getBoundingClientRect().bottom;
-      }
-      if (center_ <= rect.top && (i == 0 || prev_bottom <= center_))
-      {
-        let [trsf1, paper_img1] = onscroll_between_txt_line(center_, 0, txt_line);
-        if (i == 0){
-          draw_paper(c, trsf1, paper_img1);
-        } else {
-          let [trsf0, paper_img0] = onscroll_between_txt_line(center_, 1, prev_line);
-          const delta_rate = (center_ - prev_bottom) / (rect.top - prev_bottom);
-          draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), paper_img0);
-        }
-        break;
-      }
-      let next_line = null;
-      let next_top = 0;
-      if (i != rightw.children.length - 1){
-        next_line = rightw.children[i + 1];
-        next_top = next_line.getBoundingClientRect().top;
-      }
-      if (rect.bottom <= center_ && (i == rightw.children.length - 1 || center_ <= next_top))
-      {
-        let [trsf0, paper_img0] = onscroll_between_txt_line(center_, 1, txt_line);
-        if (i == rightw.children.length - 1){
-          draw_paper(c, trsf0, paper_img0);
-        } else {
-          let [trsf1, paper_img1] = onscroll_between_txt_line(center_, 0, next_line);
-          const delta_rate = (center_ - rect.bottom) / (next_top - rect.bottom);
-          draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), paper_img0);
-        }
-        break;
-      }
-    }
-  }
-  if( rightw.addEventListener )
-  {
-      rightw.addEventListener('scroll', onscrollR, false);
-  }
-</script>
-        '''
-        # TODO: コンテナにcanvasを載せてスクロールを実現する，コンテナにブラウザ上のサイズをもたせる．canvasのサイズは表示する論文のサイズからステップごとに変更される．
         html_pages = []
         for paragraphs in self._chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
             content = "".join(
@@ -384,6 +186,12 @@ class LocalHtmlPaper:
             output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
                 original_link = self.paper.output_dir + '.pdf'
+                # TODO: ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
+                # slot: css_rel_path, title, original url, right pane, script
+                top_html_template = pkg_resources.read_text(templates, "two_panes_with_zoom.html")
+                # TODO: コンテナにcanvasを載せてスクロールを実現する，コンテナにブラウザ上のサイズをもたせる．canvasのサイズは表示する論文のサイズからステップごとに変更される．
+                # slot: paper_img_paths
+                javascript = pkg_resources.read_text(templates, "two_panes_with_zoom.js")
                 f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link, page,
                                                  javascript.replace("####", str(original_image_paths))))
             html_files.append(output_path)
@@ -395,73 +203,9 @@ class LocalHtmlPaper:
         return (*page._pt2pixel(bbox.left, bbox.top), *page._pt2pixel(bbox.right, bbox.bottom))
 
     def export(self):
-        css_content = '''
-        html, body {
-            height: 100%;
-            overflow: hidden;
-            margin: 0;
-        }
-        #split{
-            height: 100%;
-        }
-        #left {
-            float: left;
-            top: 0;
-            width: 50%;
-            height: 100%;
-            overflow: auto;
-            box-sizing: border-box;
-            z-index: 1;
-            padding: 50% 1.5em 50%;
-        }
-        #right{
-            float: left;
-            top: 0;
-            left: 50%;
-            width: 50%;
-            height: 100%;
-            overflow: auto;
-            box-sizing: border-box;
-            z-index: 2;
-            background-color: #FFFFFF;
-            padding: 50% 1.5em 50%;
-        }
-        '''
-        css_content = '''
-html, body {
-    height: 100%;
-    overflow: hidden;
-    margin: 0;
-}
-#split{
-    height: 100%;
-}
-#left {
-    float: left;
-    top: 0;
-    width: 50%;
-    height: 100%;
-    overflow: auto;
-    box-sizing: border-box;
-    z-index: 1;
-    padding: 0%;
-}
-#right{
-    float: left;
-    top: 0;
-    left: 50%;
-    width: 50%;
-    height: 100%;
-    overflow: auto;
-    box-sizing: border-box;
-    z-index: 2;
-    background-color: #FFFFFF;
-    padding: 0% 1.5em;
-}
-        '''
         css_rel_path = pjoin('resources', 'stylesheet.css')
         css_filename = pjoin(self.paper.output_dir, css_rel_path)
         with open(css_filename, 'w', encoding="utf-8_sig") as f:
-            f.write(css_content)
+            f.write(pkg_resources.read_text(templates, 'stylesheet.css'))
 
         return self._export_zoomed_htmls(css_rel_path)
