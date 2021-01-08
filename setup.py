@@ -39,6 +39,7 @@ setup(
         'pdfminer.six >= 20200726',
         'fire',
         'pillow',
+        'Flask',
     ],
     url='https://github.com/ktaaaki/paper2html',
     author='ktaaaki',
