@@ -41,24 +41,5 @@ def render():
     return send_file(result_html)
 
 
-# TODO: リクエストがidでない，/paper2html/http:../../resources/<path>がいい
-@app.route('/resources/<path>')
-def get_resources(path):
-    local_path = f"templates/resources/{path}"
-    return send_file(local_path)
-
-
-@app.route('/resources/original_images/<path>')
-def get_resources2(path):
-    local_path = f"templates/resources/original_images/{path}"
-    return send_file(local_path)
-
-
-@app.route('/resources/crops/<path>')
-def get_resources3(path):
-    local_path = f"templates/resources/crops/{path}"
-    return send_file(local_path)
-
-
 if __name__ == '__main__':
     app.run(debug=True)

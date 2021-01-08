@@ -23,16 +23,17 @@ function on_img_loaded(){
   onscrollR();
 }
 for(i = 0; i < img_pathes.length; i++){
-  const img = new Image();
+//  const img = new Image();
   const closure_i = i;
-  img.src = img_pathes[i];
-  img.onload = function(){
+//  img.src = img_pathes[i];
+  const img = document.getElementById(img_pathes[i]);
+//  img.onload = function(){
       paper_imgs[closure_i] = img;
       loaded_img_count++;
       if(loaded_img_count == img_pathes.length){
         on_img_loaded();
       }
-  }
+//  }
 }
 
 function parse_address(str_addr) {

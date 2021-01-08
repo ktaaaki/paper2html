@@ -1,8 +1,11 @@
 import re
 import os
 import math
+import base64
+from io import BytesIO
 from os.path import join as pjoin
 from glob import glob
+from PIL import Image
 from .paper import PaperItemType, BBox
 from . import templates
 
@@ -171,7 +174,7 @@ class LocalHtmlPaper:
             html_files.append(output_path)
         return html_files
 
-    def _export_zoomed_htmls(self, css_rel_path):
+    def _export_zoomed_htmls(self, css_rel_path, inline):
         html_pages = []
         for paragraphs in self._chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
             content = "".join(
@@ -187,12 +190,33 @@ class LocalHtmlPaper:
             with open(output_path, 'w', encoding="utf-8_sig") as f:
                 original_link = self.paper.output_dir + '.pdf'
                 # TODO: ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
-                # slot: css_rel_path, title, original url, right pane, script
+                # slot: css_rel_path, title, original url, right pane, non_display_imgs, script
                 top_html_template = pkg_resources.read_text(templates, "two_panes_with_zoom.html")
                 # TODO: コンテナにcanvasを載せてスクロールを実現する，コンテナにブラウザ上のサイズをもたせる．canvasのサイズは表示する論文のサイズからステップごとに変更される．
                 # slot: paper_img_paths
                 javascript = pkg_resources.read_text(templates, "two_panes_with_zoom.js")
-                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link, page,
+                if inline:
+                    css_content = pkg_resources.read_text(templates, "stylesheet.css")
+                    css_part = f'<style type="text/css">\n<!--\n{css_content}\n-->\n</style>'
+                else:
+                    css_part = f'<link href="{css_rel_path}" rel="stylesheet" type="text/css" />'
+                imgs = []
+                for abspath in sorted(glob(pjoin(image_dir, "*.png"))):
+                    relpath = os.path.relpath(abspath, self.paper.output_dir)
+                    img = Image.open(abspath)
+                    width, height = img.size
+                    if inline:
+                        buffered = BytesIO()
+                        img.save(buffered, format="PNG")
+                        img_str = base64.b64encode(buffered.getvalue())
+                        src = "data:image/png;base64," + img_str.decode()
+                    else:
+                        src = relpath
+                    img_elm = f'<img src="{src}" width="{width}" height="{height}" class="display_non" id="{relpath}">'
+                    imgs.append(img_elm)
+                imgs = '\n'.join(imgs)
+                f.write(top_html_template.format(css_part, self.pdf_name, original_link, page,
+                                                 imgs,
                                                  javascript.replace("####", str(original_image_paths))))
             html_files.append(output_path)
         return html_files
@@ -202,10 +226,10 @@ class LocalHtmlPaper:
         assert bbox.orig == 'LB'
         return (*page._pt2pixel(bbox.left, bbox.top), *page._pt2pixel(bbox.right, bbox.bottom))
 
-    def export(self):
+    def export(self, inline=True):
         css_rel_path = pjoin('resources', 'stylesheet.css')
         css_filename = pjoin(self.paper.output_dir, css_rel_path)
         with open(css_filename, 'w', encoding="utf-8_sig") as f:
             f.write(pkg_resources.read_text(templates, 'stylesheet.css'))
 
-        return self._export_zoomed_htmls(css_rel_path)
+        return self._export_zoomed_htmls(css_rel_path, inline)

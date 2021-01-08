@@ -28,3 +28,6 @@ html, body {
     background-color: #FFFFFF;
     padding: 0% 1.5em;
 }
+.display_non{
+    display: none;
+}
