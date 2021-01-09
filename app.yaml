@@ -1,0 +1,15 @@
+runtime: custom
+env: flex
+
+entrypoint: gunicorn -b :$PORT main:app -t 600
+
+runtime_config:
+  # You can also specify 2 for Python 2.7
+  python_version: 3
+
+manual_scaling:
+  instances: 1
+resources:
+  cpu: 2
+  memory_gb: 1.5
+  disk_size_gb: 10
