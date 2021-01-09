@@ -1,5 +1,7 @@
 import math
 import os
+import shutil
+from io import BytesIO
 from flask import Flask, request, send_file
 import urllib.request
 import urllib.parse
@@ -38,7 +40,13 @@ def render():
             pass
     result_dirname, _ = os.path.splitext(filename)
     result_html = os.path.join(working_dir, result_dirname, f"{result_dirname}_0.html")
-    return send_file(result_html)
+    # delete cache
+    buffered = BytesIO()
+    with open(result_html, 'rb') as f:
+        buffered.write(f.read())
+    buffered.seek(0)
+    shutil.rmtree(cache_dir)
+    return send_file(buffered, mimetype='text/html')
 
 
 if __name__ == '__main__':
