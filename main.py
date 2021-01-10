@@ -13,21 +13,23 @@ from paper2html.commands import paper2html
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route('/paper2html')
 def render():
     download_url = request.args.get('url')
     app.logger.debug(download_url)
     _, ext = os.path.splitext(download_url)
     if ext != ".pdf":
         return f"{download_url} is not url to pdf."
-    cache_dir = "/tmp"
+    cache_dir = "paper_cache"
     if not os.path.exists(cache_dir):
         print('tmp dir does not exists!')
         os.mkdir(cache_dir)
     _, filename = os.path.split(download_url)
     working_dir = os.path.join(cache_dir, urllib.parse.quote(download_url, safe=''))
     pdf_filename = os.path.join(working_dir, filename)
-    if not os.path.exists(working_dir):
+    result_dirname, _ = os.path.splitext(filename)
+    result_html = os.path.join(working_dir, result_dirname, f"{result_dirname}_0.html")
+    if not os.path.exists(working_dir) or not os.path.exists(result_html):
         print('creating working dir.')
         # generate converted html on server cache
         os.mkdir(working_dir)
@@ -45,14 +47,12 @@ def render():
             # return send_file(url)
             print('output html file')
             pass
-    result_dirname, _ = os.path.splitext(filename)
-    result_html = os.path.join(working_dir, result_dirname, f"{result_dirname}_0.html")
     # delete cache
     with BytesIO() as buffered:
         with open(result_html, 'rb') as f:
             buffered.write(f.read())
         buffered.seek(0)
-        shutil.rmtree(cache_dir)
+        shutil.rmtree(working_dir)
         return send_file(buffered, mimetype='text/html')
 
 
