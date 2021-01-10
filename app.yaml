@@ -1,7 +1,7 @@
 runtime: custom
 env: flex
 
-entrypoint: gunicorn -b :$PORT main:app -t 600
+entrypoint: gunicorn --timeout 600 --workers 2 -b :$PORT main:app
 
 runtime_config:
   # You can also specify 2 for Python 2.7
