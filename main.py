@@ -2,6 +2,7 @@ import math
 import logging
 import os
 import shutil
+import argparse
 from io import BytesIO
 from flask import Flask, request, send_file
 import urllib.request
@@ -47,13 +48,10 @@ def render():
             # return send_file(url)
             print('output html file')
             pass
-    # delete cache
-    with BytesIO() as buffered:
-        with open(result_html, 'rb') as f:
-            buffered.write(f.read())
-        buffered.seek(0)
+    with open(result_html, 'rb') as f:
+        buffered = BytesIO(f.read())
         shutil.rmtree(working_dir)
-        return send_file(buffered, mimetype='text/html')
+    return send_file(buffered, mimetype='text/html')
 
 
 @app.errorhandler(500)
@@ -66,5 +64,9 @@ def server_error(e):
 
 
 if __name__ == '__main__':
-    # app.run(debug=True, port=8080, host='127.0.0.1')
-    app.run(debug=False, port=80, host='0.0.0.0')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", type=bool, default=False)
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="use 0.0.0.0 if you use it on a server.")
+    parser.add_argument("--port", type=int, default=5000, help="use 80 if you use it on a server.")
+    args = parser.parse_args()
+    app.run(debug=args.debug, host=args.host, port=args.port)
