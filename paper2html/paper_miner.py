@@ -8,8 +8,8 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.layout import LAParams
-from .paper import Paper, PaperItemType, PaperItem, PaperPage, BBox
-from .local_html_paper import LocalHtmlPaper
+from paper2html.paper import Paper, PaperItemType, PaperItem, PaperPage, BBox
+from paper2html.html_paper import HtmlPaper
 
 
 def read_by_extended_pdfminer(pdf_filename, line_margin_rate=None, verbose=False):
@@ -19,7 +19,7 @@ def read_by_extended_pdfminer(pdf_filename, line_margin_rate=None, verbose=False
 
     _, pdf_name = os.path.split(pdf_filename)
     pdf_name, _ = os.path.splitext(pdf_name)
-    urls = LocalHtmlPaper(paper, pdf_name).export()
+    urls = HtmlPaper(paper, pdf_name).export()
     return urls
 
 

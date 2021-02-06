@@ -7,8 +7,8 @@ import webbrowser
 from urllib.parse import quote
 import fire
 import pdf2image
-from .paper import PaperPage, Paper
-from .paper_miner import read_by_extended_pdfminer
+from paper2html.paper import PaperPage, Paper
+from paper2html.paper_miner import read_by_extended_pdfminer
 
 
 def _get_unique_dirname(dirname):

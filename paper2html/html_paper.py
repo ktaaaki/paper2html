@@ -6,8 +6,8 @@ from io import BytesIO
 from os.path import join as pjoin
 from glob import glob
 from PIL import Image
-from .paper import PaperItemType, BBox
-from . import templates
+from paper2html.paper import PaperItemType, BBox
+from paper2html import templates
 
 
 try:
@@ -16,7 +16,7 @@ except ImportError:
     import importlib_resources as pkg_resources
 
 
-class LocalHtmlPaper:
+class HtmlPaper:
     def __init__(self, paper, pdf_name):
         self.paper = paper
         self.pdf_name = pdf_name
@@ -36,24 +36,6 @@ class LocalHtmlPaper:
         result = re.sub(patt, r'\1 \2', result)
         result = re.sub("([^\\.])\n", r"\1 ", result)
         return result + "\n"
-
-    def _paragraph2img_elem(self, paragraph, i):
-        img_template = '<p id="img{}"><img alt="Figure" src="./{}" /></p>\n'
-        if paragraph[0].type == PaperItemType.Figure:
-            return img_template.format(i, os.path.relpath(paragraph[0].url, self.paper.output_dir))
-        else:
-            return "\n".join([img_template.format(i, os.path.relpath(item.url, self.paper.output_dir)) for item in paragraph])
-
-    def _paragraph2txt_elem(self, paragraph, i):
-        txt_template = '<p id="txt{}">{}</p>\n'
-        if len(paragraph) == 0:
-            return ""
-        if paragraph[0].type == PaperItemType.SectionHeader:
-            return '<h2 id="txt{}">{}</h2>\n'.format(i, self._paragraph2txt(paragraph))
-        elif paragraph[0].type == PaperItemType.Figure:
-            return txt_template.format(i, "")
-        else:
-            return txt_template.format(i, self._paragraph2txt(paragraph))
 
     def _get_zoomed_pixel(self, paper_item):
         column_bbox = self.paper.pages[paper_item.page_n].address_bbox(paper_item.address)
@@ -83,96 +65,6 @@ class LocalHtmlPaper:
             return
         for i in range(0, len(list), n):
             yield list[i:i + n]
-
-    def _export_patched_htmls(self, css_rel_path):
-        top_html_template = '''
-            <!DOCTYPE html>
-            <html lang="en">
-              <head>
-                <meta http-equiv="Content-type" content="text/html;charset=utf-8" />
-                <link href="{}" rel="stylesheet" type="text/css" />
-                <title>
-                  {}
-                </title>
-              </head>
-              <body>
-                <div id="split">
-                  <header style="position: fixed;">
-                    <input type="button" value="30%" onclick="Zoom(0.33);"/>
-                    <input type="button" value="50%" onclick="Zoom(0.5);"/>
-                    <input type="button" value="65%" onclick="Zoom(0.65);"/>
-                    <input type="button" value="100%" onclick="Zoom(1);"/>
-                    <a href="{}">[Original PDF]</a>
-                  </header><br />
-                  <div id="left">
-                      {}
-                  </div>
-                  <div id="right">
-                      {}
-                  </div>
-                </div>
-                {}
-              </body>
-            </html>
-        '''
-        javascript = r'''
-        <script language="javascript" type="text/javascript">
-            const Zoom = function(rate) {
-                for (let i = 0; i < document.images.length; i++) {
-                    document.images[i].width = document.images[i].naturalWidth * rate;
-                    document.images[i].height = document.images[i].naturalHeight * rate;
-                }
-            }
-            const rightw = document.getElementById('right');
-            const leftw = document.getElementById('left');
-            const split = document.getElementById( 'split' );
-
-            var onscrollR = function() {
-             const top_ = split.scrollTop;
-             const bottom_ = top_ + split.clientHeight;
-             const center_ = (2/3) * top_ + (1/3) * bottom_;
-             for(var i = 0; i < rightw.children.length; i++) {
-              const txt_line = rightw.children[i];
-              const rect = txt_line.getBoundingClientRect();
-                if (rect.top <= center_ && center_ <= rect.bottom)
-                {
-                  const delta_rate = (center_ - rect.top) / rect.height;
-                  const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
-                  const delta_ = delta_rate * img_line.offsetHeight;
-                  leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
-                  break;
-                }
-              }
-            }
-            if( rightw.addEventListener )
-            {
-                rightw.addEventListener('scroll', onscrollR, false);
-            }
-        </script>
-        '''
-
-        html_pages = []
-        for paragraphs in self._chunks(self.paper.paragraphs, self.paper.n_div_paragraph):
-            img_content = "\n\n\n\n\n".join(
-                [self._paragraph2img_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-            txt_content = "\n\n\n\n\n".join(
-                [self._paragraph2txt_elem(paragraph, i) for i, paragraph in enumerate(paragraphs)])
-
-            html_pages.append([img_content, txt_content])
-
-        html_files = []
-        for i, page in enumerate(html_pages):
-            img_column, txt_column = page
-            output_filename = self.pdf_name + '_%d.html' % i
-            output_path = pjoin(self.paper.output_dir, output_filename)
-            with open(output_path, 'w', encoding="utf-8_sig") as f:
-                original_link = self.paper.output_dir + '.pdf'
-                top_html_template = pkg_resources.read_text(templates, "two_panes_with_patch.html")
-                javascript = pkg_resources.read_text(templates, "two_panes_with_patch.js")
-                f.write(top_html_template.format(css_rel_path, self.pdf_name, original_link,
-                                                 img_column, txt_column, javascript))
-            html_files.append(output_path)
-        return html_files
 
     def _export_zoomed_htmls(self, css_rel_path, inline):
         html_pages = []
