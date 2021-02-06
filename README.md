@@ -4,9 +4,9 @@
 [![Python Version](https://img.shields.io/badge/python-3.5|3.7|3.8-blue)](https://github.com/ktaaaki/paper2html)
 [![Platform](https://img.shields.io/badge/platform-windows|macos|ubuntu-blue)](https://github.com/ktaaaki/paper2html)
 
-It will convert a pdf paper to html pages & show them using pdf-miner & poppler. Only the format of single or double column is supported.
+It will convert a pdf paper to html pages & show them using pdf-miner & poppler. Only the format of single or double column is supported. If you use Chrome, you can browser-translate papers(as of 2021/2/6).
 
-pdf-miner.sixとpopplerを使用して(２段組を含む)論文等をhtml表示するツールです．論文調のマニュアルでもきれいに表示できることもあります．
+pdf-miner.sixとpopplerを使用して(２段組を含む)論文をhtml表示するツールです．論文調のマニュアルでもきれいに表示できることもあります．Chromeを使用すれば，ブラウザ翻訳が可能になります(2021/2/6現在)．
 
 <img width="1633" alt="demo" src="https://user-images.githubusercontent.com/4715386/94166499-54ecb480-fec6-11ea-8155-d44d192445fa.png">
 Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan violence: Generative unadversarial networks." arXiv preprint arXiv:1703.02528 (2017).
@@ -44,12 +44,25 @@ python3とgitをインストールした後，
 > pip install -e paper2html
 ```
 
-## 使用方法
-ダウンロードしたpdfを指定して実行することで，htmlページが自動的に開きます．
+## 基本的な使用方法
+まずブックマークレットを作成します．ブラウザで何かしらのページをお気に入り登録し，登録内容を編集してURLの欄の記述を以下のコードに書き換えます．
+```
+javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html?url='+esc(location.href)).document;
+```
+以下のコマンドで，ローカルでpaper2htmlサーバを立ち上げます．
+```shell
+> python paper2html/main.py
+```
+次にブラウザからpdfファイルを開き，作成したブックマークレットを押してサーバに翻訳リクエストを送ります．
+
+pdfの内容と抽出したテキストの2つが並んだページが表示されれば成功です．
+
+## その他の使用方法
+ダウンロードしたpdfを指定して実行することで，htmlページが自動的に開きます．（ブラウザ翻訳はできません．）
 
 pythonから
 ```
-> python paper2html/main.py "path-to-paper-file.pdf"
+> python paper2html/commands.py "path-to-paper-file.pdf"
 ```
 ipythonから
 ```
@@ -59,7 +72,7 @@ ipythonから
 
 開くブラウザは以下のように指定可能です．
 ```
-> python paper2html/main.py "path-to-paper-file.pdf" --browser_path="/path/to/browser"
+> python paper2html/commands.py "path-to-paper-file.pdf" --browser_path="/path/to/browser"
 ```
 
 また，pdfからhtmlへの変換のみも行うことができます．
@@ -67,69 +80,6 @@ ipythonから
 >>> import paper2html
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
-
-さらに，下記のインストールを済ませれば，
-
-- 右クリックメニューから変換したいpdfを選択して，`open pdf as html`を選択する (macのみ)
-- ブラウザからpdfを保存する（自動的に変換が起動）
-
-ことで変換したhtmlを自動的に開くことが可能です．
-
-## フォルダアクションと右クリックメニューの作成
-一部のOSではさらに操作を短縮するツールが利用できます．
-
-### 右クリックメニューのインストール（mac用）
-クローンしたソースフォルダから`paper2html/open pdf as html.workflow`
-をダブルクリックしてautomatorに登録します．
-
-`.zshrc`で自動的に有効になるpython環境 (≒ zshでデフォルトのpython)でない場合は，
-automatorからインストールされたworkflow内部のシェルスクリプトを変更してください．
-
-MacOSがCatalina以上であれば，設定＞セキュリティとプライバシー＞フルディスクアクセス にFinder.appの追加が必要です．
-ワークフロー内のシェルスクリプトで(システムのpythonではなく)依存関係をインストールしたpythonを利用するため．
-設定しないと`Operation is not permitted`のエラーが出るので注意してください．
-
-### フォルダアクションのインストール（mac用）
-クローンしたソースフォルダから`paper2html/open_downloaded.workflow`
-をダブルクリックしてautomatorに登録します．
-
-`.zshrc`で自動的に有効になるpython環境 (≒ zshでデフォルトのpython)でない場合は，
-automatorからインストールされたworkflow内部のシェルスクリプトを変更してください．
-
-MacOSがCatalina以上であれば，設定＞セキュリティとプライバシー＞フルディスクアクセス にFinder.appの追加が必要です．
-ワークフロー内のシェルスクリプトで(システムのpythonではなく)依存関係をインストールしたpythonを利用するため．
-設定しないと`Operation is not permitted`のエラーが出るので注意してください．
-
-次に，pdfのダウンロード先のフォルダを右クリックし，右クリックメニュー＞サービス＞"フォルダアクションを設定.."を選択し，
-"サービスを確認"を押すと，"Finder"が制限されたサービス"フォルダアクションを設定..."を使おうとしています．とメッセージが出ます．
-サービスの実行を押し， ＋でスクリプトを追加(下図参照)，`open_downloaded.workflow`を選択し，関連付ける，を選択すれば完了です．
-
-<img width="483" alt="accept_folder_action" src="https://user-images.githubusercontent.com/4715386/94677454-dffefc00-0357-11eb-8948-be0ea6c8f137.png">
-
-### ディレクトリ監視スクリプト（ubuntu用）
-以下のように監視用のツールを導入し，
-```
-sudo apt install inotify-tools
-```
-`paper2html/open_downloaded.sh`の`DOWNLOADS_DIR`を設定した後，
-以下のコマンドを実行すると，ディレクトリが監視されます．
-```
-bash paper2html/open_downloaded.sh
-```
-このディレクトリにダウンロードを行えば自動的にブラウザが起動します．
-
-(デフォルトのブラウザ以外で開きたい場合は，持っているブラウザに合わせて`BROWSER_PATH`も適宜変更してください．)
-
-### フォルダ監視スクリプト（windows用）
-※ フォルダ監視が一部環境で機能しないバグが報告されています．
-
-`paper2html/open_downloaded.ps1`の`"${HOME}/Downloads"`を適当なフォルダパスに書き換えた後，
-`paper2html/open_downloaded.ps1`の右クリックメニュー＞`power shellを実行`を選択すると，
-指定したフォルダが監視されます．
-
-このフォルダにダウンロードを行えば自動的にブラウザが起動します．
-
-(デフォルトのブラウザ以外で開きたい場合は，持っているブラウザに合わせて`$browser_path`も適宜変更してください．)
 
 ## トラブルシューティング
 `which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
