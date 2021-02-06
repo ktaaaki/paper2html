@@ -33,7 +33,7 @@ class PaperReader:
         self.laparams.boxes_flow = 1.0  # 1.0: vertical order, -1.0: horizontal order
         # self.laparams.detect_vertical = True
         # laparams.all_texts = True
-        self.laparams.line_margin = line_margin_rate
+        self._line_margin_rate = line_margin_rate
 
     @staticmethod
     def _pdf_pages(pdf_filename):
@@ -54,8 +54,10 @@ class PaperReader:
             yield device.get_result()
 
     def read(self, pdf_filename):
-        if not self.laparams.line_margin:
+        if not self._line_margin_rate:
             self._zap(pdf_filename)
+        else:
+            self.laparams.line_margin = self._line_margin_rate
         paper = Paper(self.line_height, self.line_margin)
 
         for page_number, ltpage in enumerate(self._lt_pages(pdf_filename)):

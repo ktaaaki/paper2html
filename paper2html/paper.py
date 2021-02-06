@@ -213,15 +213,38 @@ class PaperPage:
         # entry: (address, -top, left, paper_item)
         self.sorted_items = sorted(self.sorted_items, key=lambda entry: entry[:-1])
 
-    def _detect_center_line(self, page_bbox):
-        # TODO: センターラインの検出を行う
-        center_x = 0.52 * page_bbox.left + 0.48 * page_bbox.right
+    def _detect_center_line(self):
+        page_bbox = self.bbox
+        default_center_x = 0.52 * page_bbox.left + 0.48 * page_bbox.right
+
+        x_values = []
+        for item in self.items:
+            x_values.append(item.bbox.left)
+            x_values.append(item.bbox.right)
+        x_min = 0.75 * page_bbox.left + 0.25 * page_bbox.right
+        x_max = 0.25 * page_bbox.left + 0.75 * page_bbox.right
+        x_values = sorted([x for x in x_values if x_min < x < x_max])
+
+        center_x = default_center_x
+        min_hit_count = math.inf
+        for left, right in zip(x_values[:-1], x_values[1:]):
+            middle = (left + right) / 2.
+            hit_count = 0
+
+            for item in self.items:
+                if item.bbox.left <= middle <= item.bbox.right:
+                    hit_count += 1
+
+            if hit_count < min_hit_count:
+                center_x = middle
+                min_hit_count = hit_count
+
         return center_x
 
     def _address_items(self):
         # 2段組みだと仮定する
         page_bbox = self.bbox
-        center_x = self._detect_center_line(page_bbox)
+        center_x = self._detect_center_line()
         left_side, right_side = (center_x, center_x)
         bottom_side, top_side = (page_bbox.bottom, page_bbox.top)
         # 上と下から順に(目を閉じるような順で)itemを見て，centerlineを超える上下のitemでheader,footer領域を決定する

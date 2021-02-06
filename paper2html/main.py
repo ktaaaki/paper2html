@@ -21,7 +21,8 @@ def render():
     _, ext = os.path.splitext(download_url)
     if ext != ".pdf":
         return f"{download_url} is not url to pdf."
-    cache_dir = "../paper_cache"
+    # TODO: tmp_dirに移動
+    cache_dir = "paper_cache"
     if not os.path.exists(cache_dir):
         print('tmp dir does not exists!')
         os.mkdir(cache_dir)
