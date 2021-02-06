@@ -13,7 +13,7 @@ from paper2html.html_paper import HtmlPaper
 
 
 def read_by_extended_pdfminer(pdf_filename, line_margin_rate=None, verbose=False):
-    paper = PaperReader(pdf_filename, line_margin_rate).read()
+    paper = PaperReader(line_margin_rate).read(pdf_filename)
     if verbose:
         paper.show_layouts()
 
@@ -24,53 +24,55 @@ def read_by_extended_pdfminer(pdf_filename, line_margin_rate=None, verbose=False
 
 
 class PaperReader:
-    def __init__(self, pdf_filename, line_margin_rate=None):
-        self.pdf_filename = pdf_filename
+    """
+    pdfminerを使用してpdfファイルからPaperオブジェクトを作成するクラス．
+    """
+    def __init__(self, line_margin_rate=None):
         self.laparams = LAParams()
         # laparams.line_margin = 0.3
         self.laparams.boxes_flow = 1.0  # 1.0: vertical order, -1.0: horizontal order
         # self.laparams.detect_vertical = True
         # laparams.all_texts = True
-        if not line_margin_rate:
-            self._zap()
-        else:
-            self.laparams.line_margin = line_margin_rate
+        self.laparams.line_margin = line_margin_rate
 
-    def pdf_pages(self):
-        with open(self.pdf_filename, 'rb') as fp:
+    @staticmethod
+    def _pdf_pages(pdf_filename):
+        with open(pdf_filename, 'rb') as fp:
             parser = PDFParser(fp)
             doc = PDFDocument(parser)
 
             for page in PDFPage.create_pages(doc):
                 yield page
 
-    def lt_pages(self):
+    def _lt_pages(self, pdf_filename):
         rsrcmgr = PDFResourceManager()
         device = PDFPageAggregator(rsrcmgr, laparams=self.laparams)
         interpreter = PDFPageInterpreter(rsrcmgr, device)
 
-        for page in self.pdf_pages():
+        for page in self._pdf_pages(pdf_filename):
             interpreter.process_page(page)
             yield device.get_result()
 
-    def read(self):
+    def read(self, pdf_filename):
+        if not self.laparams.line_margin:
+            self._zap(pdf_filename)
         paper = Paper(self.line_height, self.line_margin)
 
-        for page_number, ltpage in enumerate(self.lt_pages()):
+        for page_number, ltpage in enumerate(self._lt_pages(pdf_filename)):
             page = PaperPage(BBox(ltpage.bbox, orig='LB'), page_number)
             for item in ltpage:
-                self.render_item(page, item, page_number)
+                self._render_item(page, item, page_number)
             paper.add_page(page)
         return paper
 
-    def _zap(self):
+    def _zap(self, pdf_filename):
         """
         先頭2ページを調べ，行の高さと行間の最頻値からpdfminer.Lparams.line_margin = 行間/行の高さ を設定します．
         """
         line_margin_counts = {}
         line_height_counts = {}
         zap_max = 2
-        for page_number, ltpage in enumerate(self.lt_pages()):
+        for page_number, ltpage in enumerate(self._lt_pages(pdf_filename)):
             if page_number > zap_max:
                 break
             self._count_line_properties(ltpage, line_margin_counts, line_height_counts)
@@ -182,22 +184,22 @@ class PaperReader:
         else:
             return False
 
-    def render_item(self, page, item, page_number):
+    def _render_item(self, page, item, page_number):
         separated = False
         if isinstance(item, LTTextBoxHorizontal):
-            self.render_textbox(page, item, page_number)
+            self._render_textbox(page, item, page_number)
         elif isinstance(item, (LTLine, LTCurve)):
-            self.render_shape(page, item, page_number)
+            self._render_shape(page, item, page_number)
         elif isinstance(item, (LTFigure, LTImage)):
-            self.render_figure(page, item, page_number)
+            self._render_figure(page, item, page_number)
         elif isinstance(item, LTTextBoxVertical):
             item_type = PaperItemType.VTextBox
             text = item.get_text()
-            page.items.append(PaperItem(page_number, BBox(item.bbox, orig='LB'), text, item_type, separated))
+            page.add_item(PaperItem(page_number, BBox(item.bbox, orig='LB'), text, item_type, separated))
         else:
             print(type(item))
 
-    def render_textbox(self, page, textbox, page_number):
+    def _render_textbox(self, page, textbox, page_number):
         separated = False
         if self._textbox_is_vertical(textbox):
             item_type = PaperItemType.VTextBox
@@ -206,7 +208,7 @@ class PaperReader:
             separated = self._check_separated(textbox)
 
         for paragraph in self._split_by_indent(textbox, item_type, separated, page_number):
-            page.items.append(paragraph)
+            page.add_item(paragraph)
 
     def _split_by_indent(self, textbox, item_type, separated, page_number):
         bbox = BBox(textbox.bbox, orig='LB')
@@ -237,15 +239,15 @@ class PaperReader:
         results[0].separated = separated
         return results
 
-    def render_shape(self, page, item, page_number):
+    def _render_shape(self, page, item, page_number):
         bbox = BBox(item.bbox, orig='LB')
         item_type = PaperItemType.Shape
         text = "\n\n\n\n"
         # 幅0でclipするとエラーなので膨らませておく
         bbox = bbox.inflate(1)
-        page.items.append(PaperItem(page_number, bbox, text, item_type, False))
+        page.add_item(PaperItem(page_number, bbox, text, item_type, False))
 
-    def render_figure(self, page, item, page_number):
+    def _render_figure(self, page, item, page_number):
         item_type = PaperItemType.Figure
         text = "Figure Space\n\n\n\n"
         if hasattr(item, "__iter__"):
@@ -257,5 +259,5 @@ class PaperReader:
             for child in item:
                 if isinstance(child, LTChar):
                     continue
-                self.render_item(page, child, page_number)
-        page.items.append(PaperItem(page_number, BBox(item.bbox, orig='LB'), text, item_type, False))
+                self._render_item(page, child, page_number)
+        page.add_item(PaperItem(page_number, BBox(item.bbox, orig='LB'), text, item_type, False))

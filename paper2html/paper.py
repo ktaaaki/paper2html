@@ -169,6 +169,9 @@ class Paragraph:
 
 @has_global_id
 class PaperPage:
+    """
+    Paperのページ要素を表すクラス．
+    """
     # TODO: 変数管理を改善する
     image_dir = None
     crop_dir = None
@@ -190,6 +193,9 @@ class PaperPage:
         self.captions = []
 
         self.image = None
+
+    def add_item(self, item: PaperItem):
+        self.items.append(item)
 
     def recognize(self, line_height, line_margin):
         """
@@ -593,7 +599,7 @@ class PaperPage:
 
 class Paper:
     """
-    pdfminerの解析結果を表すクラス．
+    PaperReaderの解析結果を表すクラス．
     """
     output_dir = None
     layout_dir = None
