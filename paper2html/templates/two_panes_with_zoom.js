@@ -19,9 +19,11 @@ const img_pathes = ####;
 
 let paper_imgs = {};
 let loaded_img_count = 0;
+
 function on_img_loaded(){
   onscrollR();
 }
+
 for(i = 0; i < img_pathes.length; i++){
 //  const img = new Image();
   const closure_i = i;
@@ -47,6 +49,7 @@ function parse_address(str_addr) {
     return [page_n, left, top, right, bottom];
   });
 }
+
 function get_address(elem) {
   return parse_address(elem.getAttribute("data-address"));
 }
@@ -69,10 +72,10 @@ function get_papers_transform(paper_size, canvas_size, target, center_height, de
   return [zoom, left, top];
 }
 
-function onscroll_between_txt_line(center_, delta_rate, txt_line){
+function onscroll_between_txt_line(eye_level, delta_rate, txt_line){
   //const img_line = document.getElementById(txt_line.id.replace('txt', 'img'));
   //const delta_ = delta_rate * img_line.offsetHeight;
-  //leftw.scrollTo(0, img_line.offsetTop + delta_ - center_);
+  //leftw.scrollTo(0, img_line.offsetTop + delta_ - eye_level);
   const addrs = get_address(txt_line);
   const addr = addrs[0];
   //now_addr = addr;
@@ -81,9 +84,9 @@ function onscroll_between_txt_line(center_, delta_rate, txt_line){
     [paper_img.width, paper_img.height],
     [leftw.clientWidth, leftw.clientHeight],
     [addr[1], addr[2], addr[3]-addr[1], addr[4]-addr[2]],
-    center_, delta_rate);
+    eye_level, delta_rate);
   //now_trsf = trsf;
-  return [trsf, paper_img];
+  return [trsf, addr[0]];
 }
 
 function blend_trsf(trsf0, trsf1, delta_rate){
@@ -91,7 +94,9 @@ function blend_trsf(trsf0, trsf1, delta_rate){
           (1-delta_rate) * trsf0[1] + delta_rate * trsf1[1],
           (1-delta_rate) * trsf0[2] + delta_rate * trsf1[2]]
 }
-function draw_paper(c, trsf, paper_img){
+
+function draw_paper(c, trsf, page_idx){
+  const paper_img = paper_imgs[page_idx];
   canvas.width = paper_img.width*3;
   canvas.height = paper_img.height*3;
   leftw.scrollTo(trsf[0]*(paper_img.width-trsf[1]), trsf[0]*(paper_img.height-trsf[2]));
@@ -99,76 +104,90 @@ function draw_paper(c, trsf, paper_img){
   c.fillRect(0, 0, canvas.width, canvas.height);
   c.save();
   c.scale(trsf[0], trsf[0]);
+  // drawImage(, dx, dy);
   c.drawImage(paper_img, paper_img.width, paper_img.height);
+  if(page_idx != 0){
+    const prev_page = paper_imgs[page_idx-1];
+    c.drawImage(prev_page, paper_img.width, paper_img.height - prev_page.height);
+  }
+  if(page_idx != paper_imgs.length-1){
+    const next_page = paper_imgs[page_idx+1];
+    c.drawImage(next_page, paper_img.width, paper_img.height + next_page.height);
+  }
   c.restore();
 
-  //c.fillRect(80, 80, 200, 200);
-  //c.fillStyle = "rgb(0, 0, 0)";
-  //c.fillText("rate: " + delta_rate.toString(), 100, 100);
-  //c.fillText("height: " + (addr[4]-addr[2]).toString(), 100, 120);
-  //c.fillText("zoom: " + trsf[0].toString(), 100, 140);
-  //c.fillText("paper_width: " + paper_img.width.toString(), 100, 160);
-  //c.fillText("paper_height: " + paper_img.height.toString(), 100, 180);
-  //c.fillText("canvas_w: " + canvas.width.toString(), 100, 200);
-  //c.fillText("canvas_h: " + canvas.height.toString(), 100, 220);
-  //c.fillText("y: " + trsf[2].toString(), 100, 240);
+//  c.fillRect(80, 80, 200, 200);
+//  c.fillStyle = "rgb(0, 0, 0)";
+////  c.fillText("rate: " + delta_rate.toString(), 100, 100);
+////  c.fillText("height: " + (addr[4]-addr[2]).toString(), 100, 120);
+//  c.fillText("zoom: " + trsf[0].toString(), 100, 140);
+//  c.fillText("paper_width: " + paper_img.width.toString(), 100, 160);
+//  c.fillText("paper_height: " + paper_img.height.toString(), 100, 180);
+//  c.fillText("canvas_w: " + canvas.width.toString(), 100, 200);
+//  c.fillText("canvas_h: " + canvas.height.toString(), 100, 220);
+//  c.fillText("y: " + trsf[2].toString(), 100, 240);
 }
-function onscrollR() {
- fit_canvas();
- let c = canvas.getContext('2d');
- const top_ = split.scrollTop;
- const bottom_ = top_ + split.clientHeight;
- const center_ = (2/3) * top_ + (1/3) * bottom_;
 
- for(let i = 0; i < rightw.children.length; i++) {
-  const txt_line = rightw.children[i];
-  const rect = txt_line.getBoundingClientRect();
-    if (rect.top <= center_ && center_ <= rect.bottom)
-    {
-      const delta_rate = (center_ - rect.top) / rect.height;
-      let [trsf, paper_img] = onscroll_between_txt_line(center_, delta_rate, txt_line);
-      draw_paper(c, trsf, paper_img);
+function onscrollR() {
+  fit_canvas();
+  let c = canvas.getContext('2d');
+  const top_ = split.scrollTop;
+  const bottom_ = top_ + split.clientHeight;
+  const eye_level = (2/3) * top_ + (1/3) * bottom_;
+
+  for(let i = 0; i < rightw.children.length; i++) {
+    const txt_line = rightw.children[i];
+    const rect = txt_line.getBoundingClientRect();
+
+    // 段落内に目線の高さがある場合
+    if (rect.top <= eye_level && eye_level <= rect.bottom) {
+      const delta_rate = (eye_level - rect.top) / rect.height;
+      let [trsf, page_idx] = onscroll_between_txt_line(eye_level, delta_rate, txt_line);
+      draw_paper(c, trsf, page_idx);
       break;
     }
+
+    // 段落より上に目線の高さがある場合
     let prev_line = null;
     let prev_bottom = 0;
     if (i != 0){
       prev_line = rightw.children[i - 1];
       prev_bottom = prev_line.getBoundingClientRect().bottom;
     }
-    if (center_ <= rect.top && (i == 0 || prev_bottom <= center_))
-    {
-      let [trsf1, paper_img1] = onscroll_between_txt_line(center_, 0, txt_line);
+    if (eye_level <= rect.top && (i == 0 || prev_bottom <= eye_level)) {
+      let [trsf1, page_idx1] = onscroll_between_txt_line(eye_level, 0, txt_line);
       if (i == 0){
-        draw_paper(c, trsf1, paper_img1);
+        draw_paper(c, trsf1, page_idx1);
       } else {
-        let [trsf0, paper_img0] = onscroll_between_txt_line(center_, 1, prev_line);
-        const delta_rate = (center_ - prev_bottom) / (rect.top - prev_bottom);
-        draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), paper_img0);
+        let [trsf0, page_idx0] = onscroll_between_txt_line(eye_level, 1, prev_line);
+        const delta_rate = (eye_level - prev_bottom) / (rect.top - prev_bottom);
+        draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), page_idx0);
       }
       break;
     }
+
+    // 段落より下に目線の高さがある場合
     let next_line = null;
     let next_top = 0;
     if (i != rightw.children.length - 1){
       next_line = rightw.children[i + 1];
       next_top = next_line.getBoundingClientRect().top;
     }
-    if (rect.bottom <= center_ && (i == rightw.children.length - 1 || center_ <= next_top))
-    {
-      let [trsf0, paper_img0] = onscroll_between_txt_line(center_, 1, txt_line);
+    if (rect.bottom <= eye_level && (i == rightw.children.length - 1 || eye_level <= next_top)) {
+      let [trsf0, page_idx0] = onscroll_between_txt_line(eye_level, 1, txt_line);
       if (i == rightw.children.length - 1){
-        draw_paper(c, trsf0, paper_img0);
-      } else {
-        let [trsf1, paper_img1] = onscroll_between_txt_line(center_, 0, next_line);
-        const delta_rate = (center_ - rect.bottom) / (next_top - rect.bottom);
-        draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), paper_img0);
+        draw_paper(c, trsf0, page_idx0);
+      }
+      else {
+        let [trsf1, page_idx1] = onscroll_between_txt_line(eye_level, 0, next_line);
+        const delta_rate = (eye_level - rect.bottom) / (next_top - rect.bottom);
+        draw_paper(c, blend_trsf(trsf0, trsf1, delta_rate), page_idx0);
       }
       break;
     }
   }
 }
-if( rightw.addEventListener )
-{
+
+if( rightw.addEventListener ) {
     rightw.addEventListener('scroll', onscrollR, false);
 }

@@ -55,6 +55,7 @@ class PaperReader:
 
     def read(self, pdf_filename):
         if not self._line_margin_rate:
+            # TODO: line_margin設定を揃える
             self._zap(pdf_filename)
         else:
             self.laparams.line_margin = self._line_margin_rate
