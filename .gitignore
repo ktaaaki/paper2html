@@ -2,3 +2,4 @@
 *.egg-info
 tests/sample_files
 /paper2html/clean_downloads.py
+paper_cache
