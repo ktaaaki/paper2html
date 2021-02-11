@@ -22,11 +22,13 @@ def has_global_id(target_cls, name='idx'):
 class BBox:
     def __init__(self, raw_bbox, orig='LT'):
         self.orig = orig
+        # x-> yv
         if orig == 'LT':
             self.left = raw_bbox[0]
             self.top = raw_bbox[1]
             self.right = raw_bbox[2]
             self.bottom = raw_bbox[3]
+        # x-> y^
         elif orig == 'LB':
             self.left = raw_bbox[0]
             self.bottom = raw_bbox[1]
@@ -149,9 +151,11 @@ class PaperItem:
     def check_separated(self):
         from pdfminer.layout import LTChar
         text_box = self.lt_items[0]
+        tb_bbox = BBox(text_box.bbox, 'LB')
+
+        # 文字の大きさの統計を取る
         mean_width = 0
         mean_height = 0
-        tb_bbox = BBox(text_box.bbox, 'LB')
         max_x = tb_bbox.left
         char_count = 0
         for child in text_box:
@@ -166,15 +170,19 @@ class PaperItem:
         mean_height /= char_count
         mean_width /= char_count
 
+        # 最後の文字を割り出す
         last_child = None
         for child in text_box:
             child_bbox = BBox(child.bbox, orig='LB')
             if isinstance(child, LTChar) and child_bbox.bottom < tb_bbox.bottom + mean_height:
+                # 最終行にchildがあるとき
                 lc_bbox = BBox(last_child.bbox, orig='LB')
                 if not last_child:
                     last_child = child
                 elif lc_bbox.right < child_bbox.right:
                     last_child = child
+
+        # 最後の行の端まで文字がありピリオドで終わっていなければ separated=True
         if last_child:
             separated = True
             lc_bbox = BBox(last_child.bbox, orig='LB')
@@ -195,14 +203,14 @@ class PaperItem:
         split_lines = [[]]
         lines = list(textbox)
 
+        # インデントされた行かどうか
         def is_indented(line):
             line_bbox = BBox(line.bbox, orig='LB')
-            return abs(line_bbox.bottom - bbox.bottom) > line_height
+            return abs(line_bbox.left - bbox.left) > line_height
         for i, line in enumerate(lines):
             if is_indented(line):
-                if not i + 1 < len(lines):
-                    split_lines.append([])
-                elif not is_indented(lines[i + 1]):
+                # 2行以上インデントが続かない場合は段落を区切る
+                if i + 1 == len(lines) or not is_indented(lines[i + 1]):
                     split_lines.append([])
             split_lines[-1].append(line)
         if len(split_lines) == 0:
