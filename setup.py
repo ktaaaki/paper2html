@@ -34,11 +34,13 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
+    package_data={"paper2html": ["templates/*.html", "templates/*.css", "templates/*.js"]},
     install_requires=[
         'pdf2image',
         'pdfminer.six >= 20200726',
         'fire',
         'pillow',
+        'Flask',
     ],
     url='https://github.com/ktaaaki/paper2html',
     author='ktaaaki',
