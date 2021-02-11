@@ -131,18 +131,93 @@ class PaperItemType(IntEnum):
 
 @has_global_id
 class PaperItem:
-    def __init__(self, page_n, bbox, text, item_type, separated=False):
+    def __init__(self, lt_items, page_n, bbox, text, item_type, separated=False):
         bbox_ = bbox
         if bbox.right - bbox.left < 0 or bbox.top - bbox.bottom < 0:
             # 幅0でclipするとエラーなので膨らませておく
             bbox_ = BBox((0, 0, 1, 1), orig='LB')
+        self.lt_items = lt_items
         self.bbox = bbox_
         self.page_n = page_n
         self.text = text
         self.type = item_type
+        # 後続のitemから分離されたものかどうか？場所によって意味が異なりバグの原因になっている
         self.separated = separated
         self.url = None
         self.address = None
+
+    def check_separated(self):
+        from pdfminer.layout import LTChar
+        text_box = self.lt_items[0]
+        mean_width = 0
+        mean_height = 0
+        tb_bbox = BBox(text_box.bbox, 'LB')
+        max_x = tb_bbox.left
+        char_count = 0
+        for child in text_box:
+            if isinstance(child, LTChar):
+                char_count += 1
+                child_bbox = BBox(child.bbox, orig='LB')
+                mean_height += child_bbox.height
+                mean_width += child_bbox.width
+                max_x = max(child_bbox.right, max_x)
+        if char_count == 0:
+            return False
+        mean_height /= char_count
+        mean_width /= char_count
+
+        last_child = None
+        for child in text_box:
+            child_bbox = BBox(child.bbox, orig='LB')
+            if isinstance(child, LTChar) and child_bbox.bottom < tb_bbox.bottom + mean_height:
+                lc_bbox = BBox(last_child.bbox, orig='LB')
+                if not last_child:
+                    last_child = child
+                elif lc_bbox.right < child_bbox.right:
+                    last_child = child
+        if last_child:
+            separated = True
+            lc_bbox = BBox(last_child.bbox, orig='LB')
+            if lc_bbox.right < max_x - mean_width:
+                separated = False
+            if last_child.get_text() == '.':
+                separated = False
+            return separated
+        else:
+            return False
+
+    def split_by_indent(self, separated, line_height):
+        textbox = self.lt_items[0]
+        page_number = self.page_n
+        item_type = self.type
+
+        bbox = BBox(textbox.bbox, orig='LB')
+        split_lines = [[]]
+        lines = list(textbox)
+
+        def is_indented(line):
+            line_bbox = BBox(line.bbox, orig='LB')
+            return abs(line_bbox.bottom - bbox.bottom) > line_height
+        for i, line in enumerate(lines):
+            if is_indented(line):
+                if not i + 1 < len(lines):
+                    split_lines.append([])
+                elif not is_indented(lines[i + 1]):
+                    split_lines.append([])
+            split_lines[-1].append(line)
+        if len(split_lines) == 0:
+            raise ValueError('empty textbox.')
+        if len(split_lines[0]) == 0:
+            split_lines.pop(0)
+        results = []
+        for lines in split_lines:
+            bbox = BBox.unify_bboxes([BBox(line.bbox, orig='LB') for line in lines])
+            text = ''.join([line.get_text() for line in lines])
+            results.append(PaperItem([lines], page_number, bbox, text, item_type, True))
+        if len(results) == 0:
+            raise ValueError('empty textbox.')
+        results[0].separated = separated
+        return results
 
 
 @has_global_id
@@ -165,6 +240,23 @@ class Paragraph:
 
     def __len__(self):
         return len(self.paper_items)
+
+    @property
+    def content(self):
+        """
+        段落内の改行を取り除く．pdfからのコピペの整形に使用していたころの名残．
+        """
+        result = "".join([item.text for item in self])
+        patt = '([^(.|\n)])- ([^\n])'
+        result = re.sub(patt, r'\1\2', result)
+        patt = '([^(.|\n)])-\n([^\n])'
+        result = re.sub(patt, r'\1\2', result)
+        # patt = '\.\n'
+        # result = re.sub(patt, r'.\n\n', result)
+        patt = '([^(.|\n)])\n([^\n])'
+        result = re.sub(patt, r'\1 \2', result)
+        result = re.sub("([^\\.])\n", r"\1 ", result)
+        return result + "\n"
 
 
 @has_global_id
@@ -201,6 +293,8 @@ class PaperPage:
         """
         pdfminerから読み取られた描画オブジェクトを論文形式の文書として認識する
         """
+        # TODO: 移植の都合上の順序立てられていない前処理
+        self._from_reader_preprocess(line_height)
         self._address_items()
         self._sort_items()
         self._unify_items(line_margin)
@@ -208,6 +302,24 @@ class PaperPage:
         self._recognize_items()
         self._sort_items()
         self._arrange_paragraphs()
+
+    def _from_reader_preprocess(self, line_height):
+        from pdfminer.layout import LTTextBoxHorizontal
+        delitems = []
+        newitems = []
+        for item in self.items:
+            if len(item.lt_items) == 0:
+                continue
+            if not isinstance(item.lt_items[0], LTTextBoxHorizontal):
+                continue
+            separated = False
+            if item.type == PaperItemType.TextBox:
+                separated = item.check_separated()
+            newitems.extend(item.split_by_indent(separated, line_height))
+            delitems.append(item)
+        for item in delitems:
+            self.items.remove(item)
+        self.items.extend(newitems)
 
     def _sort_items(self):
         # entry: (address, -top, left, paper_item)
@@ -355,7 +467,9 @@ class PaperPage:
                          PaperItemType.TextBox, PaperItemType.Caption,
                          PaperItemType.Char, PaperItemType.VTextBox}
         texts = []
+        lt_items = []
         for item in sorted(overlaps, key=lambda i: -i.bbox.top):
+            lt_items.extend(item.lt_items)
             if item.type in content_types:
                 texts.append(item.text)
             if item.type == PaperItemType.TextBox or item.type == PaperItemType.Paragraph:
@@ -366,7 +480,7 @@ class PaperPage:
         # 統合が終わったあとに最小限のbboxに整形する
         # TODO: 数式の一部が切れる
         bbox = BBox.unify_bboxes([item.bbox for item in overlaps])
-        result = PaperItem(self.page_n, bbox, text, PaperItemType.Paragraph, separated)
+        result = PaperItem(lt_items, self.page_n, bbox, text, PaperItemType.Paragraph, separated)
         return result
 
     def _get_inflated_bbox(self, bbox, address):
@@ -425,13 +539,14 @@ class PaperPage:
                             item.type = PaperItemType.Paragraph
                             i += 1
                             continue
-                        new_item = PaperItem(self.page_n, composed_bbox, " ", PaperItemType.Paragraph)
+                        new_item = PaperItem([], self.page_n, composed_bbox, " ", PaperItemType.Paragraph)
                         filename = self._crop_image(new_item.bbox)
                         new_item.url = filename
                         collapsed_texts = []
                         for item_ in self._collided_items(new_item.bbox):
                             item_.type = PaperItemType.Part_of_Object
                             collapsed_texts.append(item_.text)
+                            new_item.lt_items.extend(item_.lt_items)
                         new_item.text = re.sub(r"\n", "", "".join(collapsed_texts)) + "\n"
                         new_item.address = address
                         self.sorted_items.insert(i, (address, -composed_bbox.top, composed_bbox.left, new_item))
@@ -684,14 +799,49 @@ class Paper:
         plt.figure()
         for page_n, page in enumerate(self.pages):
             ax = plt.axes()
-            for item in page.items:
-                bbox = item.bbox
-                ec_str = "#000000" if item.type == PaperItemType.Paragraph else "#FF0000"
-                self._draw_rect(bbox, ax, ec_str)
+            # for item in page.items:
+            #     bbox = item.bbox
+            #     if item.type == PaperItemType.TextBox:
+            #         ec_str = "#000000"
+            #     else:
+            #         ec_str = "#FF0000"
+            #     self._draw_rect(bbox, ax, ec_str)
             for bbox in (page.header_bbox, page.left_bbox, page.right_bbox, page.footer_bbox):
                 self._draw_rect(bbox, ax, "#0000FF")
+            # for address, my, x, item in page.sorted_items:
+            #     bbox = item.bbox
+            #     if item.type == PaperItemType.Paragraph:
+            #         ec_str = "#000000"
+            #     elif item.type == PaperItemType.SectionHeader:
+            #         ec_str = "#FF00FF"
+            #     elif item.type == PaperItemType.Caption:
+            #         ec_str = "#FFFF00"
+            #     elif item.type == PaperItemType.Splitter:
+            #         ec_str = "#00FFFF"
+            #     elif item.type == PaperItemType.Part_of_Object:
+            #         ec_str = "#00FF00"
+            #     elif item.type == PaperItemType.Figure:
+            #         ec_str = "#AA0000"
+            #     elif item.type == PaperItemType.Shape:
+            #         ec_str = "#AAAA00"
+            #     elif item.type == PaperItemType.Char:
+            #         ec_str = "#00AA00"
+            #     elif item.type == PaperItemType.VTextBox:
+            #         ec_str = "#0000AA"
+            #     else:
+            #         ec_str = "#AA00AA"
+            #     self._draw_rect(bbox, ax, ec_str)
+            for para in page.body_paragraphs:
+                for item in para:
+                    bbox = item.bbox
+                    if item.type == PaperItemType.Paragraph:
+                        ec_str = "#000000"
+                    else:
+                        ec_str = "#FF0000"
+                    self._draw_rect(bbox, ax, ec_str)
 
             plt.axis('scaled')
+            # plt.legend()
             ax.set_aspect('equal')
             plt.savefig(pjoin(self.layout_dir, 'pdf2jpn%d.png' % page_n))
             plt.clf()

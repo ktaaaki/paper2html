@@ -21,22 +21,6 @@ class HtmlPaper:
         self.paper = paper
         self.pdf_name = pdf_name
 
-    def _paragraph2txt(self, paragraph):
-        """
-        段落内の改行を取り除く．pdfからのコピペの整形に使用していたころの名残．
-        """
-        result = "".join([item.text for item in paragraph])
-        patt = '([^(.|\n)])- ([^\n])'
-        result = re.sub(patt, r'\1\2', result)
-        patt = '([^(.|\n)])-\n([^\n])'
-        result = re.sub(patt, r'\1\2', result)
-        # patt = '\.\n'
-        # result = re.sub(patt, r'.\n\n', result)
-        patt = '([^(.|\n)])\n([^\n])'
-        result = re.sub(patt, r'\1 \2', result)
-        result = re.sub("([^\\.])\n", r"\1 ", result)
-        return result + "\n"
-
     def _get_zoomed_pixel(self, paper_item):
         column_bbox = self.paper.pages[paper_item.page_n].address_bbox(paper_item.address)
         assert column_bbox.orig == 'LB' and paper_item.bbox.orig == 'LB'
@@ -52,11 +36,11 @@ class HtmlPaper:
         address_2d = [(paper_item.page_n, *self._get_zoomed_pixel(paper_item)) for paper_item in paragraph]
         address_str = "|".join(",".join([str(i) for i in item_addr]) for item_addr in address_2d)
         if paragraph[0].type == PaperItemType.SectionHeader:
-            return '<h2 data-address="{}" id="txt{}">{}</h2>\n'.format(address_str, i, self._paragraph2txt(paragraph))
+            return '<h2 data-address="{}" id="txt{}">{}</h2>\n'.format(address_str, i, paragraph.content)
         elif paragraph[0].type == PaperItemType.Figure:
             return img_template.format(address_str, i, os.path.relpath(paragraph[0].url, self.paper.output_dir))
         else:
-            return txt_template.format(address_str, i, self._paragraph2txt(paragraph))
+            return txt_template.format(address_str, i, paragraph.content)
 
     @staticmethod
     def _chunks(list, n):
@@ -81,10 +65,10 @@ class HtmlPaper:
             output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
                 original_link = self.paper.output_dir + '.pdf'
-                # TODO: ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
+                # ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
                 # slot: css_rel_path, title, original url, right pane, non_display_imgs, script
                 top_html_template = pkg_resources.read_text(templates, "two_panes_with_zoom.html")
-                # TODO: コンテナにcanvasを載せてスクロールを実現する，コンテナにブラウザ上のサイズをもたせる．canvasのサイズは表示する論文のサイズからステップごとに変更される．
+                # コンテナにcanvasを載せてスクロールを実現する，コンテナにブラウザ上のサイズをもたせる．canvasのサイズは表示する論文のサイズからステップごとに変更される．
                 # slot: paper_img_paths
                 javascript = pkg_resources.read_text(templates, "two_panes_with_zoom.js")
                 if inline:
