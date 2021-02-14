@@ -5,6 +5,7 @@ from enum import IntEnum
 import inspect
 from os.path import join as pjoin
 from PIL import Image
+from pdfminer.layout import LTTextBoxHorizontal, LTCurve, LTChar
 
 
 def has_global_id(target_cls, name='idx'):
@@ -44,6 +45,10 @@ class BBox:
     @property
     def height(self):
         return abs(self.bottom - self.top)
+
+    @property
+    def area(self):
+        return self.width * self.height
 
     def unify(self, other):
         if self.orig != other.orig:
@@ -149,7 +154,6 @@ class PaperItem:
         self.address = None
 
     def check_separated(self):
-        from pdfminer.layout import LTChar
         text_box = self.lt_items[0]
         tb_bbox = BBox(text_box.bbox, 'LB')
 
@@ -311,12 +315,20 @@ class PaperPage:
         self._sort_items()
         self._arrange_paragraphs()
 
+    def _lt_item_is_invisible(self, lt_item: LTCurve):
+        # 背景色が白だと仮定している
+        fill = lt_item.fill and lt_item.non_stroking_color != (1, 1, 1)
+        stroke = lt_item.stroke and lt_item.stroking_color != (1, 1, 1)
+        return not fill and not stroke
+
     def _from_reader_preprocess(self, line_height):
-        from pdfminer.layout import LTTextBoxHorizontal
         delitems = []
         newitems = []
         for item in self.items:
             if len(item.lt_items) == 0:
+                continue
+            if isinstance(item.lt_items[0], LTCurve) and self._lt_item_is_invisible(item.lt_items[0]):
+                delitems.append(item)
                 continue
             if not isinstance(item.lt_items[0], LTTextBoxHorizontal):
                 continue
@@ -346,18 +358,18 @@ class PaperPage:
         x_values = sorted([x for x in x_values if x_min < x < x_max])
 
         center_x = default_center_x
-        min_hit_count = math.inf
+        min_hit_area = math.inf
         for left, right in zip(x_values[:-1], x_values[1:]):
             middle = (left + right) / 2.
-            hit_count = 0
+            hit_area = 0
 
             for item in self.items:
                 if item.bbox.left <= middle <= item.bbox.right:
-                    hit_count += 1
+                    hit_area += item.bbox.area
 
-            if hit_count < min_hit_count:
+            if hit_area < min_hit_area:
                 center_x = middle
-                min_hit_count = hit_count
+                min_hit_area = hit_area
 
         return center_x
 
@@ -807,13 +819,21 @@ class Paper:
         plt.figure()
         for page_n, page in enumerate(self.pages):
             ax = plt.axes()
-            # for item in page.items:
-            #     bbox = item.bbox
-            #     if item.type == PaperItemType.TextBox:
-            #         ec_str = "#000000"
-            #     else:
-            #         ec_str = "#FF0000"
-            #     self._draw_rect(bbox, ax, ec_str)
+            for item in page.items:
+                bbox = item.bbox
+                if item.type == PaperItemType.TextBox:
+                    ec_str = "#000000"
+                elif item.type == PaperItemType.Figure:
+                    ec_str = "#AA00AA"
+                elif item.type == PaperItemType.Shape:
+                    ec_str = "#AAAA00"
+                elif item.type == PaperItemType.Char:
+                    ec_str = "#00AA00"
+                elif item.type == PaperItemType.VTextBox:
+                    ec_str = "#0000AA"
+                else:
+                    ec_str = "#FF0000"
+                self._draw_rect(bbox, ax, ec_str)
             for bbox in (page.header_bbox, page.left_bbox, page.right_bbox, page.footer_bbox):
                 self._draw_rect(bbox, ax, "#0000FF")
             # for address, my, x, item in page.sorted_items:
@@ -839,14 +859,14 @@ class Paper:
             #     else:
             #         ec_str = "#AA00AA"
             #     self._draw_rect(bbox, ax, ec_str)
-            for para in page.body_paragraphs:
-                for item in para:
-                    bbox = item.bbox
-                    if item.type == PaperItemType.Paragraph:
-                        ec_str = "#000000"
-                    else:
-                        ec_str = "#FF0000"
-                    self._draw_rect(bbox, ax, ec_str)
+            # for para in page.body_paragraphs:
+            #     for item in para:
+            #         bbox = item.bbox
+            #         if item.type == PaperItemType.Paragraph:
+            #             ec_str = "#000000"
+            #         else:
+            #             ec_str = "#FF0000"
+            #         self._draw_rect(bbox, ax, ec_str)
 
             plt.axis('scaled')
             # plt.legend()
