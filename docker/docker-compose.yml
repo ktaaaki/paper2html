@@ -1,0 +1,22 @@
+version: "3"
+services:
+  paper2html:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - paper:/paper_cache
+
+  htmlserver:
+    build:
+      context: .
+      dockerfile: htmlserver.Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - paper:/paper_cache
+
+volumes:
+  paper:
