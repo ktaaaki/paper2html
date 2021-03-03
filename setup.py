@@ -41,6 +41,7 @@ setup(
         'fire',
         'pillow',
         'Flask',
+        'watchdog',
     ],
     url='https://github.com/ktaaaki/paper2html',
     author='ktaaaki',

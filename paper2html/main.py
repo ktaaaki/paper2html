@@ -7,14 +7,68 @@ from io import BytesIO
 from flask import Flask, request, send_file
 import urllib.request
 import urllib.parse
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler
 from paper2html.paper import Paper
 from paper2html.commands import paper2html
+
+
+cache_dir = "paper_cache"
+
+
+def init_cache_dir():
+    if not os.path.exists(cache_dir):
+        print('tmp dir does not exists!')
+        os.mkdir(cache_dir)
+    return cache_dir
+
+
+def init_working_dir(download_url, cache_dir):
+    _, filename = os.path.split(download_url)
+    working_dir = os.path.join(cache_dir, urllib.parse.quote(download_url, safe=''))
+    if not os.path.exists(working_dir):
+        print('creating working dir.')
+        os.mkdir(working_dir)
+    return working_dir
+
+
+class PdfFileEventHandler(PatternMatchingEventHandler):
+    def __init__(self, patterns=("*.pdf",), ignore_patterns=None, ignore_directories=True, case_sensitive=False,
+                 debug=False):
+        super().__init__(patterns, ignore_patterns, ignore_directories, case_sensitive)
+        self.debug = debug
+
+    def on_any_event(self, event):
+        if not os.path.exists(event.src_path):
+            return
+
+        n_div_paragraph = math.inf
+        line_margin_rate = None
+        verbose = self.debug
+        Paper.n_div_paragraph = n_div_paragraph
+        paper2html(event.src_path, cache_dir, line_margin_rate, verbose)
 
 
 class ConvertService:
     @classmethod
     def run(cls, debug, host, port):
         app = Flask(__name__)
+
+        def get_pdf_filename(url):
+            cache_dir = init_cache_dir()
+            working_dir = init_working_dir(url, cache_dir)
+
+            _, filename = os.path.split(url)
+            pdf_filename = os.path.join(working_dir, filename)
+            return pdf_filename
+
+        def download(url, filename):
+            with urllib.request.urlopen(url) as uf:
+                with open(filename, 'bw') as of:
+                    of.write(uf.read())
+                print('download pdf.')
+                if not os.path.exists(filename):
+                    print('download failed.')
 
         @app.route('/paper2html')
         def render():
@@ -23,29 +77,21 @@ class ConvertService:
             _, ext = os.path.splitext(download_url)
             if ext != ".pdf":
                 return f"{download_url} is not url to pdf."
-            # TODO: tmp_dirに移動
-            cache_dir = "paper_cache"
-            if not os.path.exists(cache_dir):
-                print('tmp dir does not exists!')
-                os.mkdir(cache_dir)
+
+            working_dir = init_working_dir(download_url, cache_dir)
+
             _, filename = os.path.split(download_url)
-            working_dir = os.path.join(cache_dir, urllib.parse.quote(download_url, safe=''))
-            pdf_filename = os.path.join(working_dir, filename)
             result_dirname, _ = os.path.splitext(filename)
             result_html = os.path.join(working_dir, result_dirname, f"{result_dirname}_0.html")
-            if not os.path.exists(working_dir) or not os.path.exists(result_html):
-                print('creating working dir.')
-                # generate converted html on server cache
-                os.mkdir(working_dir)
+
+            if not os.path.exists(result_html):
                 n_div_paragraph = math.inf
                 line_margin_rate = None
                 verbose = debug
-                with urllib.request.urlopen(download_url) as uf:
-                    with open(pdf_filename, 'bw') as of:
-                        of.write(uf.read())
-                    print('download pdf.')
-                    if not os.path.exists(pdf_filename):
-                        print('download failed.')
+                pdf_filename = get_pdf_filename(download_url)
+                download(download_url, pdf_filename)
+                if not os.path.exists(pdf_filename):
+                    return f"please post {pdf_filename} first."
                 Paper.n_div_paragraph = n_div_paragraph
                 for url in paper2html(pdf_filename, working_dir, line_margin_rate, verbose):
                     # return send_file(url)
@@ -53,7 +99,7 @@ class ConvertService:
                     pass
             with open(result_html, 'rb') as f:
                 buffered = BytesIO(f.read())
-                if not debug:
+                if debug:
                     shutil.rmtree(working_dir)
             return send_file(buffered, mimetype='text/html')
 
@@ -75,4 +121,14 @@ if __name__ == '__main__':
     parser.add_argument("--port", type=int, default=5000, help="use 80 if you use it on a server.")
     args = parser.parse_args()
 
+    init_cache_dir()
+    event_handler = PdfFileEventHandler()
+    obs = Observer()
+    obs.schedule(event_handler, os.path.abspath(cache_dir), recursive=False)
+    obs.start()
+
     ConvertService.run(debug=args.debug, host=args.host, port=args.port)
+
+    obs.unschedule_all()
+    obs.stop()
+    obs.join()
