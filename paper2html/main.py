@@ -119,16 +119,20 @@ if __name__ == '__main__':
     parser.add_argument("--debug", type=bool, default=False)
     parser.add_argument("--host", type=str, default="127.0.0.1", help="use 0.0.0.0 if you use it on a server.")
     parser.add_argument("--port", type=int, default=5000, help="use 80 if you use it on a server.")
+    parser.add_argument("--watch", type=bool, default=False,
+                        help="automatically convert local PDFs on the paper_cache directory.")
     args = parser.parse_args()
 
     init_cache_dir()
-    event_handler = PdfFileEventHandler()
-    obs = Observer()
-    obs.schedule(event_handler, os.path.abspath(cache_dir), recursive=False)
-    obs.start()
+    if args.watch:
+        event_handler = PdfFileEventHandler()
+        obs = Observer()
+        obs.schedule(event_handler, os.path.abspath(cache_dir), recursive=False)
+        obs.start()
 
     ConvertService.run(debug=args.debug, host=args.host, port=args.port)
 
-    obs.unschedule_all()
-    obs.stop()
-    obs.join()
+    if args.watch:
+        obs.unschedule_all()
+        obs.stop()
+        obs.join()
