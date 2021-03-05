@@ -33,13 +33,29 @@ def init_working_dir(download_url, cache_dir):
 
 
 class PdfFileEventHandler(PatternMatchingEventHandler):
-    def __init__(self, patterns=("*.pdf",), ignore_patterns=None, ignore_directories=True, case_sensitive=False,
+    def __init__(self, ignore_patterns=None, ignore_directories=True, case_sensitive=False,
                  debug=False):
-        super().__init__(patterns, ignore_patterns, ignore_directories, case_sensitive)
+        super().__init__(("*.pdf",), ignore_patterns, ignore_directories, case_sensitive)
         self.debug = debug
 
-    def on_any_event(self, event):
+    def _is_timing_of_conversion(self, event):
         if not os.path.exists(event.src_path):
+            return False
+        base_dir, _ = os.path.split(event.src_path)
+
+        # to ignore intermediate pdf files on some OS (recursive option does not work... ?)
+        if not os.path.samefile(base_dir, cache_dir):
+            return False
+
+        # or pattern filter does not work... ?
+        _, ext = os.path.splitext(event.src_path)
+        if ext != '.pdf':
+            return False
+
+        return True
+
+    def on_any_event(self, event):
+        if not self._is_timing_of_conversion(event):
             return
 
         n_div_paragraph = math.inf
