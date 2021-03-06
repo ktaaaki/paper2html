@@ -8,7 +8,7 @@ from flask import Flask, request, send_file
 import urllib.request
 import urllib.parse
 from watchdog.observers import Observer
-from watchdog.events import PatternMatchingEventHandler
+from watchdog.events import PatternMatchingEventHandler, FileSystemEvent
 from paper2html.paper import Paper
 from paper2html.commands import paper2html
 
@@ -34,27 +34,32 @@ def init_working_dir(download_url, cache_dir):
 
 class PdfFileEventHandler(PatternMatchingEventHandler):
     def __init__(self, ignore_patterns=None, ignore_directories=True, case_sensitive=False,
-                 debug=False):
+                 debug=False, server_mode=False):
         super().__init__(("*.pdf",), ignore_patterns, ignore_directories, case_sensitive)
         self.debug = debug
+        self.server_mode = server_mode
 
     def _is_timing_of_conversion(self, event):
+        # file server may write pdf file without locking.
+        if self.server_mode and str(event.event_type) != 'closed':
+            return False
+
         if not os.path.exists(event.src_path):
             return False
-        base_dir, _ = os.path.split(event.src_path)
+        base_dir, filename = os.path.split(event.src_path)
 
         # to ignore intermediate pdf files on some OS (recursive option does not work... ?)
         if not os.path.samefile(base_dir, cache_dir):
             return False
 
-        # or pattern filter does not work... ?
-        _, ext = os.path.splitext(event.src_path)
-        if ext != '.pdf':
+        # already converted
+        basename, _ = os.path.splitext(filename)
+        if os.path.exists(os.path.join(base_dir, basename)):
             return False
 
         return True
 
-    def on_any_event(self, event):
+    def on_any_event(self, event: FileSystemEvent):
         if not self._is_timing_of_conversion(event):
             return
 
@@ -141,8 +146,9 @@ if __name__ == '__main__':
 
     init_cache_dir()
     if args.watch:
-        event_handler = PdfFileEventHandler()
         obs = Observer()
+        event_handler = PdfFileEventHandler(
+            server_mode=(str(type(obs)) == "<class 'watchdog.observers.inotify.InotifyObserver'>"))
         obs.schedule(event_handler, os.path.abspath(cache_dir), recursive=False)
         obs.start()
 
