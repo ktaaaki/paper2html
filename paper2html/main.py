@@ -23,13 +23,18 @@ def init_cache_dir():
     return cache_dir
 
 
-def init_working_dir(download_url, cache_dir):
+def init_temp_dir(download_url, cache_dir):
     _, filename = os.path.split(download_url)
-    working_dir = os.path.join(cache_dir, urllib.parse.quote(download_url, safe=''))
+    working_dir = os.path.join(cache_dir, filename)
     if not os.path.exists(working_dir):
         print('creating working dir.')
         os.mkdir(working_dir)
     return working_dir
+
+
+def get_working_dir(cache_dir, filename):
+    basename, _ = os.path.splitext(filename)
+    return os.path.join(cache_dir, basename)
 
 
 class PdfFileEventHandler(PatternMatchingEventHandler):
@@ -69,6 +74,10 @@ class PdfFileEventHandler(PatternMatchingEventHandler):
         Paper.n_div_paragraph = n_div_paragraph
         paper2html(event.src_path, cache_dir, line_margin_rate, verbose)
 
+        _, filename = os.path.split(event.src_path)
+        stored_pdf_path = os.path.join(get_working_dir(cache_dir, filename), filename)
+        shutil.move(event.src_path, stored_pdf_path)
+
 
 class ConvertService:
     @classmethod
@@ -77,10 +86,10 @@ class ConvertService:
 
         def get_pdf_filename(url):
             cache_dir = init_cache_dir()
-            working_dir = init_working_dir(url, cache_dir)
+            temp_dir = init_temp_dir(url, cache_dir)
 
             _, filename = os.path.split(url)
-            pdf_filename = os.path.join(working_dir, filename)
+            pdf_filename = os.path.join(temp_dir, filename)
             return pdf_filename
 
         def download(url, filename):
@@ -99,11 +108,11 @@ class ConvertService:
             if ext != ".pdf":
                 return f"{download_url} is not url to pdf."
 
-            working_dir = init_working_dir(download_url, cache_dir)
+            temp_dir = init_temp_dir(download_url, cache_dir)
 
             _, filename = os.path.split(download_url)
-            result_dirname, _ = os.path.splitext(filename)
-            result_html = os.path.join(working_dir, result_dirname, f"{result_dirname}_0.html")
+            basename, _ = os.path.splitext(filename)
+            result_html = os.path.join(get_working_dir(cache_dir, filename), f"{basename}_0.html")
 
             if not os.path.exists(result_html):
                 n_div_paragraph = math.inf
@@ -114,14 +123,15 @@ class ConvertService:
                 if not os.path.exists(pdf_filename):
                     return f"please post {pdf_filename} first."
                 Paper.n_div_paragraph = n_div_paragraph
-                for url in paper2html(pdf_filename, working_dir, line_margin_rate, verbose):
+                for url in paper2html(pdf_filename, cache_dir, line_margin_rate, verbose):
                     # return send_file(url)
                     print('output html file')
                     pass
+                shutil.move(pdf_filename, os.path.join(get_working_dir(cache_dir, filename), filename))
+                shutil.rmtree(temp_dir)
             with open(result_html, 'rb') as f:
                 buffered = BytesIO(f.read())
-                if debug:
-                    shutil.rmtree(working_dir)
+
             return send_file(buffered, mimetype='text/html')
 
         @app.errorhandler(500)
