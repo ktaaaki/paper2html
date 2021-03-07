@@ -1,9 +1,10 @@
 FROM alpine
 
+COPY . /paper2html/
+
 RUN apk add --no-cache \
         python3-dev \
         py-pip \
-        git \
         poppler-utils \
         poppler-data \
         # Cryptography depenencies
@@ -18,7 +19,6 @@ RUN apk add --no-cache \
         # https://github.com/python-pillow/docker-images/blob/master/alpine/Dockerfile
         zlib-dev \
         jpeg-dev \
-    && git clone https://github.com/ktaaaki/paper2html.git \
     && python3 -m pip --no-cache-dir install -e paper2html
 
 EXPOSE 5000
