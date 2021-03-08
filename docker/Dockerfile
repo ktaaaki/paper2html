@@ -1,5 +1,7 @@
 FROM alpine
 
+LABEL org.opencontainers.image.source=https://github.com/ktaaaki/paper2html
+
 COPY . /paper2html/
 
 RUN apk add --no-cache \
