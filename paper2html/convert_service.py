@@ -49,6 +49,28 @@ class TemporaryDownloader:
         shutil.rmtree(self.temp_dir)
 
 
+class PdfFilePlacedEventHandler(PatternMatchingEventHandler):
+    def __init__(self, handler, case_sensitive=False, debug=False, server_mode=False):
+        super().__init__(("*.pdf",), ignore_patterns=None, ignore_directories=True, case_sensitive=case_sensitive)
+        self.handler = handler
+        self.debug = debug
+        self.server_mode = server_mode
+
+    def _is_placed(self, event):
+        # file server may write pdf file without locking.
+        if self.server_mode and str(event.event_type) != 'closed':
+            return False
+
+        if not os.path.exists(event.src_path):
+            return False
+
+        return True
+
+    def on_any_event(self, event: FileSystemEvent):
+        if self._is_placed(event):
+            self.handler(event)
+
+
 class LocalPaperDirectory:
     def __init__(self, watch, debug=False):
         self._init_cache_dir()
@@ -117,16 +139,17 @@ class LocalPaperDirectory:
         if self.is_converted(download_url):
             # cache_dir/basename/basename_0.html
             return self.get_result_html_path(download_url)
-        else:
-            _, filename = os.path.split(download_url)
-            temp_dir = os.path.join(self.cache_dir, filename)
-            # pdf_filename = self._download2working_dir(download_url)
-            with TemporaryDownloader(download_url, temp_dir) as dl:
-                result_html = paper2one_html(dl.downloaded_path, self.cache_dir, self.debug)
-                self._store_pdf(dl.downloaded_path)
-                print('output html file')
-                # TODO: result_html is wrong
-                return self.get_result_html_path(download_url)
+
+        _, filename = os.path.split(download_url)
+        temp_dir = os.path.join(self.cache_dir, filename)
+
+        # the code below makes an extra working directory because paper2html makes new one.
+        # pdf_filename = self._download2working_dir(download_url)
+        with TemporaryDownloader(download_url, temp_dir) as dl:
+            result_html = paper2one_html(dl.downloaded_path, self.cache_dir, self.debug)
+            self._store_pdf(dl.downloaded_path)
+            print('output html file')
+            return result_html
 
     def on_pdf_placed(self, event: FileSystemEvent):
         if self._is_time_to_convert(event):
@@ -139,7 +162,7 @@ class LocalPaperDirectory:
             self.on_pdf_placed, server_mode=(str(type(obs)) == "<class 'watchdog.observers.inotify.InotifyObserver'>"))
         obs.schedule(event_handler, os.path.abspath(self.cache_dir), recursive=False)
         obs.start()
-        return obs
+        self.obs = obs
 
     def stop_watching(self):
         if self.obs:
@@ -147,28 +170,6 @@ class LocalPaperDirectory:
             obs.unschedule_all()
             obs.stop()
             obs.join()
-
-
-class PdfFilePlacedEventHandler(PatternMatchingEventHandler):
-    def __init__(self, handler, case_sensitive=False, debug=False, server_mode=False):
-        super().__init__(("*.pdf",), ignore_patterns=None, ignore_directories=True, case_sensitive=case_sensitive)
-        self.handler = handler
-        self.debug = debug
-        self.server_mode = server_mode
-
-    def _is_placed(self, event):
-        # file server may write pdf file without locking.
-        if self.server_mode and str(event.event_type) != 'closed':
-            return False
-
-        if not os.path.exists(event.src_path):
-            return False
-        
-        return True
-
-    def on_any_event(self, event: FileSystemEvent):
-        if self._is_placed(event):
-            self.handler(event)
 
 
 def convert_service_run(host, port, watch, debug):
