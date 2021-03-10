@@ -1,9 +1,7 @@
 version: "3"
 services:
   paper2html:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/ktaaaki/paper2html:latest
     ports:
       - "5000:5000"
     volumes:
