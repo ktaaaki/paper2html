@@ -47,7 +47,7 @@ python3とgitをインストールした後，
 ## 基本的な使用方法
 まずブックマークレットを作成します．ブラウザで何かしらのページをお気に入り登録し，登録内容を編集してURLの欄の記述を以下のコードに書き換えます．
 ```
-javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html?url='+esc(location.href)).document;
+javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html/convert/?url='+esc(location.href)).document;
 ```
 以下のコマンドで，ローカルでpaper2htmlサーバを立ち上げます．
 ```shell
