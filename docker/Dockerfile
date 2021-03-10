@@ -25,4 +25,4 @@ RUN apk add --no-cache \
 
 EXPOSE 5000
 
-CMD [ "python3", "/paper2html/paper2html/main.py", "--host=0.0.0.0" ]
+CMD [ "python3", "/paper2html/paper2html/main.py", "--host=0.0.0.0", "--watch=True" ]
