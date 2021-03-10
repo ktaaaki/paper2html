@@ -10,7 +10,7 @@ def convert_service_run(host, port, watch, debug):
 
     app = Flask(__name__)
 
-    @app.route('/paper2html')
+    @app.route('/paper2html/convert')
     def render():
         download_url = request.args.get('url')
         app.logger.debug(download_url)
@@ -19,6 +19,19 @@ def convert_service_run(host, port, watch, debug):
             return f"{download_url} is not url to pdf."
 
         result_html = paper_dir.prepare_html(download_url)
+        return send_file(os.path.abspath(result_html), mimetype='text/html')
+
+    @app.route('/paper2html/index.html')
+    def browse_top():
+        def url_factory(filename):
+            print(app.root_path)
+            return f"http://localhost:5000/paper2html/browse/{filename}"
+        index_html = paper_dir.update_index_html(url_factory)
+        return send_file(os.path.abspath(index_html), mimetype='text/html')
+
+    @app.route('/paper2html/browse/<filename>')
+    def browse(filename):
+        result_html = paper_dir.prepare_html(filename)
         return send_file(os.path.abspath(result_html), mimetype='text/html')
 
     @app.errorhandler(500)

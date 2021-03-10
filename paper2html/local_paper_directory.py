@@ -8,6 +8,13 @@ from watchdog.observers import Observer
 
 from paper2html import paper2html
 from paper2html.paper import Paper
+from paper2html import templates
+
+
+try:
+    import importlib.resources as pkg_resources
+except ImportError:
+    import importlib_resources as pkg_resources
 
 
 def paper2one_html(src_path, cache_dir, debug):
@@ -153,6 +160,17 @@ class LocalPaperDirectory:
         if self._is_time_to_convert(event):
             paper2one_html(event.src_path, self.cache_dir, self.debug)
             self._store_pdf(event.src_path)
+
+    def update_index_html(self, url_factory):
+        dirs = os.listdir(self.cache_dir)
+        converted_filenames = [dirname + '.pdf' for dirname in dirs if self.is_converted(dirname)]
+        index_html_template = pkg_resources.read_text(templates, "index.html")
+        index_html_contents = index_html_template.format("\n".join(
+            [f'<li><a href="{url_factory(filename)}">{filename}</a></li>' for filename in converted_filenames]))
+        index_file_path = os.path.join(self.cache_dir, "index.html")
+        with open(index_file_path, "w") as f:
+            f.write(index_html_contents)
+        return index_file_path
 
     def start_watching(self):
         obs = Observer()
