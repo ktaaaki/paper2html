@@ -9,12 +9,15 @@ It will convert a pdf paper to html pages & show them using pdf-miner & poppler.
 pdf-miner.sixとpopplerを使用して(２段組を含む)論文をhtml表示するツールです．論文調のマニュアルでもきれいに表示できることもあります．Chromeを使用すれば，ブラウザ翻訳が可能になります(2021/2/6現在)．
 
 <img width="1633" alt="demo" src="https://user-images.githubusercontent.com/4715386/94166499-54ecb480-fec6-11ea-8155-d44d192445fa.png">
+
 Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan violence: Generative unadversarial networks." arXiv preprint arXiv:1703.02528 (2017).
 
 ## 依存環境のインストール
+
 popplerに依存しているので，環境に合わせてインストールしてください．
 
 ### windowsの場合
+
 `http://blog.alivate.com.au/poppler-windows/`
 
 からpopplerをダウンロード＋解凍して，環境変数にexeファイルのある場所のPathを通してください．
@@ -24,63 +27,84 @@ popplerに依存しているので，環境に合わせてインストールし�
 値`C:¥Users¥YOUR_NAME¥Downloads¥poppler-0.68.0¥bin`を新規に追加してください．
 
 ### ubuntuの場合
+
+```shell
+$ sudo apt install poppler-utils poppler-data
 ```
-> sudo apt install poppler-utils poppler-data
-```
+
 ### macの場合
+
 anaconda(miniconda)の場合
+
+```shell
+$ conda install poppler
 ```
-> conda install poppler
-```
+
 homebrewの場合
+
+```shell
+$ brew install poppler
 ```
-> brew install poppler
-```
+
 ## 本体のインストール
+
 python3とgitをインストールした後，
 以下のコマンドで，作業ディレクトリにクローンしたpaper2htmlをインストールできます．
-```
-> git clone https://github.com/ktaaaki/paper2html.git
-> pip install -e paper2html
+
+```shell
+$ git clone https://github.com/ktaaaki/paper2html.git
+$ pip install -e paper2html
 ```
 
 ## 基本的な使用方法
+
 まずブックマークレットを作成します．ブラウザで何かしらのページをお気に入り登録し，登録内容を編集してURLの欄の記述を以下のコードに書き換えます．
-```
+
+```js
 javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html/convert?url='+esc(location.href)).document;
 ```
+
 以下のコマンドで，ローカルでpaper2htmlサーバを立ち上げます．
+
 ```shell
-> python paper2html/main.py
+$ python paper2html/main.py
 ```
+
 次にブラウザからpdfファイルを開き，作成したブックマークレットを押してサーバに翻訳リクエストを送ります．
 
 pdfの内容と抽出したテキストの2つが並んだページが表示されれば成功です．
 
 ## その他の使用方法
+
 ダウンロードしたpdfを指定して実行することで，htmlページが自動的に開きます．（ブラウザ翻訳はできません．）
 
 pythonから
+
+```shell
+$ python paper2html/commands.py "path-to-paper-file.pdf"
 ```
-> python paper2html/commands.py "path-to-paper-file.pdf"
-```
+
 ipythonから
-```
+
+```py
 >>> import paper2html
 >>> paper2html.open_paper_htmls("path-to-paper-file.pdf")
 ```
 
 開くブラウザは以下のように指定可能です．
-```
-> python paper2html/commands.py "path-to-paper-file.pdf" --browser_path="/path/to/browser"
+
+```shell
+$ python paper2html/commands.py "path-to-paper-file.pdf" --browser_path="/path/to/browser"
 ```
 
 また，pdfからhtmlへの変換のみも行うことができます．
-```
+
+```py
 >>> import paper2html
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
 
 ## トラブルシューティング
+
 `which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
 popplerのインストール場所を確認してください．
