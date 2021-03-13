@@ -47,7 +47,7 @@ $ python3 ./paper2html/main.py
 ### Windows
 
 Download `Poppler for Windows` binary file from <http://blog.alivate.com.au/poppler-windows/>  
-Pleas set the `Poppler for Windows` path(ex.`C:¥Users¥YOUR_NAME¥Downloads¥poppler-0.68.0¥bin`) in the PATH environment variable.
+Please set the `Poppler for Windows` path(ex.`C:¥Users¥YOUR_NAME¥Downloads¥poppler-0.68.0¥bin`) in the PATH environment variable.
 
 Verify that the path is displayed with the following command.
 
