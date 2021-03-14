@@ -77,7 +77,7 @@ Then the conversion will start and the generated html will be opened after a whi
 
 You can see the list of converted documents in the index page `localhost:5000/paper2html/index.html`
 
-NOTE👉 If you are running a paper2html server on Docker, you will not be able to convert PDF file on the host OS in a browser. See [docker image doc](docker/README.md).
+NOTE👉 If you are running a paper2html server on Docker, you will not be able to convert PDF file on the host OS with the bookmarklet. See [docker image doc](docker/README.md).
 
 ### Conversion local PDF to html with CLI
 
