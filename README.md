@@ -1,110 +1,108 @@
 # paper2html
 
 [![License: AGPL](https://img.shields.io/badge/license-AGPL-yellow)](https://opensource.org/licenses/AGPL-3.0)
-[![Python Version](https://img.shields.io/badge/python-3.5|3.7|3.8-blue)](https://github.com/ktaaaki/paper2html)
-[![Platform](https://img.shields.io/badge/platform-windows|macos|ubuntu-blue)](https://github.com/ktaaaki/paper2html)
+[![Python Version](https://img.shields.io/badge/python-3.6|3.7|3.8|3.9-blue)](https://github.com/ktaaaki/paper2html)
+[![Platform](https://img.shields.io/badge/platform-windows|macos|linux-blue)](https://github.com/ktaaaki/paper2html)
 
-It will convert a pdf paper to html pages & show them using pdf-miner & poppler. Only the format of single or double column is supported. If you use Chrome, you can browser-translate papers(as of 2021/2/6).
+Convert a PDF paper to html page.  
+You can translate the paper easily by browser functions, and you can view the original document and the translated document at the same time.
 
-pdf-miner.sixとpopplerを使用して(２段組を含む)論文をhtml表示するツールです．論文調のマニュアルでもきれいに表示できることもあります．Chromeを使用すれば，ブラウザ翻訳が可能になります(2021/2/6現在)．
-
-<img width="1633" alt="demo" src="https://user-images.githubusercontent.com/4715386/94166499-54ecb480-fec6-11ea-8155-d44d192445fa.png">
+![work_on_edge](https://user-images.githubusercontent.com/50911393/110310478-f2d3d600-8045-11eb-9f97-4f8bbfd5ec3a.gif)
 
 Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan violence: Generative unadversarial networks." arXiv preprint arXiv:1703.02528 (2017).
 
-## 依存環境のインストール
+## Features
 
-popplerに依存しているので，環境に合わせてインストールしてください．
+- Convert PDF files on the Internet easily by using a bookmarklet.
+- Support for double-column papers.
 
-### windowsの場合
+## Installing and running paper2html server
 
-`http://blog.alivate.com.au/poppler-windows/`
+### Docker
 
-からpopplerをダウンロード＋解凍して，環境変数にexeファイルのある場所のPathを通してください．
+```shell
+$ docker run --rm -it -p 5000:5000 ghcr.io/ktaaaki/paper2html
+```
 
-例えば最新のバイナリ:poppler-0.68.0_x86を`C:¥Users¥YOUR_NAME¥Downloads`にダウンロードして展開した場合は，
-システムの詳細設定の表示＞システムのプロパティ＞詳細設定＞環境変数(N)...＞ユーザー環境変数のPathを編集して
-値`C:¥Users¥YOUR_NAME¥Downloads¥poppler-0.68.0¥bin`を新規に追加してください．
+Use with care as it opens up the port.
 
-### ubuntuの場合
+### Debian GNU/Linux, Ubuntu
 
 ```shell
 $ sudo apt install poppler-utils poppler-data
+$ git clone https://github.com/ktaaaki/paper2html.git
+$ pip install -e paper2html
+$ python3 ./paper2html/main.py
 ```
 
-### macの場合
-
-anaconda(miniconda)の場合
-
-```shell
-$ conda install poppler
-```
-
-homebrewの場合
+### macOS
 
 ```shell
 $ brew install poppler
-```
-
-## 本体のインストール
-
-python3とgitをインストールした後，
-以下のコマンドで，作業ディレクトリにクローンしたpaper2htmlをインストールできます．
-
-```shell
 $ git clone https://github.com/ktaaaki/paper2html.git
 $ pip install -e paper2html
+$ python3 ./paper2html/main.py
 ```
 
-## 基本的な使用方法
+### Windows
 
-まずブックマークレットを作成します．ブラウザで何かしらのページをお気に入り登録し，登録内容を編集してURLの欄の記述を以下のコードに書き換えます．
+Download `Poppler for Windows` binary file from <http://blog.alivate.com.au/poppler-windows/>  
+Please set the `Poppler for Windows` path(ex.`C:\Users\YOUR_NAME\Downloads\poppler-0.68.0\bin`) in the PATH environment variable.
+
+Verify that the path is displayed with the following command.
+
+```powershell
+> where.exe pdfinfo
+```
+
+Download the zip file or use `git clone` command to save the paper2html code locally, and then install it using the following command.
+
+```powershell
+> py -m pip -e paper2html
+> python .\paper2html\main.py
+```
+
+## Usage
+
+### Conversion PDF on the web to html with paper2html server
+
+Upload a PDF file to the server by using this bookmarklet.
 
 ```js
 javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html/convert?url='+esc(location.href)).document;
 ```
 
-以下のコマンドで，ローカルでpaper2htmlサーバを立ち上げます．
+Click on the bookmarklet when you open a PDF paper in your browser.  
+Then the conversion will start and the generated html will be opened after a while.
 
-```shell
-$ python paper2html/main.py
-```
+You can see the list of converted documents in the index page `localhost:5000/paper2html/index.html`
 
-次にブラウザからpdfファイルを開き，作成したブックマークレットを押してサーバに翻訳リクエストを送ります．
+NOTE👉 If you are running a paper2html server on Docker, you will not be able to convert PDF file on the host OS with the bookmarklet. See [docker image doc](docker/README.md).
 
-pdfの内容と抽出したテキストの2つが並んだページが表示されれば成功です．
+### Conversion local PDF to html with CLI
 
-## その他の使用方法
-
-ダウンロードしたpdfを指定して実行することで，htmlページが自動的に開きます．（ブラウザ翻訳はできません．）
-
-pythonから
+Run this command, then open the html file in your browser.
 
 ```shell
 $ python paper2html/commands.py "path-to-paper-file.pdf"
 ```
 
-ipythonから
+In IPython, do it like this.
 
 ```py
 >>> import paper2html
 >>> paper2html.open_paper_htmls("path-to-paper-file.pdf")
 ```
 
-開くブラウザは以下のように指定可能です．
+You can use specific browser.
 
 ```shell
 $ python paper2html/commands.py "path-to-paper-file.pdf" --browser_path="/path/to/browser"
 ```
 
-また，pdfからhtmlへの変換のみも行うことができます．
+You can also only convert without opening a browser.
 
 ```py
 >>> import paper2html
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
-
-## トラブルシューティング
-
-`which pdfinfo`（またはwindowsでは`where.exe pdfinfo`）とコマンド入力して何も出力されない場合は，popplerが実行環境から見えていません．
-popplerのインストール場所を確認してください．
