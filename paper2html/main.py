@@ -11,4 +11,4 @@ if __name__ == '__main__':
     parser.add_argument("--debug", type=bool, default=False)
     args = parser.parse_args()
 
-    convert_service_run(args.host, args.port, args.watch, args.debug)
+    convert_service_run(args.host, args.port, args.dir, args.watch, args.debug)
