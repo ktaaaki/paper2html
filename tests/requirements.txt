@@ -6,3 +6,4 @@ Flask
 watchdog
 selenium
 chromedriver_binary
+pytest
