@@ -11,4 +11,4 @@ RUN apt-get update \
 
 EXPOSE 5000
 
-CMD [ "python", "/paper2html/paper2html/main.py", "--host=0.0.0.0", "--watch=True" ]
+CMD [ "python", "/paper2html/paper2html/main.py", "--host=0.0.0.0", "--dir=/tmp/paper_cache", "--watch=True" ]
