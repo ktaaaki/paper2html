@@ -77,8 +77,8 @@ class PdfFilePlacedEventHandler(PatternMatchingEventHandler):
 
 
 class LocalPaperDirectory:
-    def __init__(self, watch, debug=False):
-        self._init_cache_dir()
+    def __init__(self, dir_path, watch, debug=False):
+        self._init_paper_dir(dir_path)
         self.obs = None
         self.debug = debug
         if watch:
@@ -87,16 +87,19 @@ class LocalPaperDirectory:
     def __del__(self):
         self.stop_watching()
 
-    def _init_cache_dir(self):
-        cache_dir = "paper_cache"
-        if not os.path.exists(cache_dir):
-            print('tmp dir does not exists!')
-            os.mkdir(cache_dir)
-        self.cache_dir = cache_dir
+    def _init_paper_dir(self, dir_path):
+        if not dir_path:
+            paper_dir = "paper_cache"
+        else:
+            paper_dir = dir_path
+        if not os.path.exists(paper_dir):
+            print('paper dir does not exists!')
+            os.mkdir(paper_dir)
+        self.paper_dir = paper_dir
 
     def _get_working_dir(self, filename):
         basename, _ = os.path.splitext(filename)
-        working_dir = os.path.join(self.cache_dir, basename)
+        working_dir = os.path.join(self.paper_dir, basename)
         return working_dir
 
     def _init_working_dir(self, filename):
@@ -120,7 +123,7 @@ class LocalPaperDirectory:
         _, filename = os.path.split(url_or_path)
         working_dir = self._get_working_dir(filename)
         basename, _ = os.path.splitext(filename)
-        # cache_dir/basename/basename_0.html
+        # paper_dir/basename/basename_0.html
         result_html = os.path.join(working_dir, f"{basename}_0.html")
         return result_html
 
@@ -131,7 +134,7 @@ class LocalPaperDirectory:
         base_dir, filename = os.path.split(event.src_path)
 
         # to ignore intermediate pdf files on some OS (recursive option does not work... ?)
-        if not os.path.samefile(base_dir, self.cache_dir):
+        if not os.path.samefile(base_dir, self.paper_dir):
             return False
 
         # already converted
@@ -142,32 +145,32 @@ class LocalPaperDirectory:
 
     def prepare_html(self, download_url):
         if self.is_converted(download_url):
-            # cache_dir/basename/basename_0.html
+            # paper_dir/basename/basename_0.html
             return self.get_result_html_path(download_url)
 
         _, filename = os.path.split(download_url)
-        temp_dir = os.path.join(self.cache_dir, filename)
+        temp_dir = os.path.join(self.paper_dir, filename)
 
         # the code below makes an extra working directory because paper2html makes new one.
         # pdf_filename = self._download2working_dir(download_url)
         with TemporaryDownloader(download_url, temp_dir) as dl:
-            result_html = paper2one_html(dl.downloaded_path, self.cache_dir, self.debug)
+            result_html = paper2one_html(dl.downloaded_path, self.paper_dir, self.debug)
             self._store_pdf(dl.downloaded_path)
             print('output html file')
             return result_html
 
     def on_pdf_placed(self, event: FileSystemEvent):
         if self._is_time_to_convert(event):
-            paper2one_html(event.src_path, self.cache_dir, self.debug)
+            paper2one_html(event.src_path, self.paper_dir, self.debug)
             self._store_pdf(event.src_path)
 
     def update_index_html(self, url_factory):
-        dirs = os.listdir(self.cache_dir)
+        dirs = os.listdir(self.paper_dir)
         converted_filenames = [dirname + '.pdf' for dirname in dirs if self.is_converted(dirname)]
         index_html_template = pkg_resources.read_text(templates, "index.html")
         index_html_contents = index_html_template.format("\n".join(
             [f'<li><a href="{url_factory(filename)}">{filename}</a></li>' for filename in converted_filenames]))
-        index_file_path = os.path.join(self.cache_dir, "index.html")
+        index_file_path = os.path.join(self.paper_dir, "index.html")
         with open(index_file_path, "w") as f:
             f.write(index_html_contents)
         return index_file_path
@@ -176,7 +179,7 @@ class LocalPaperDirectory:
         obs = Observer()
         event_handler = PdfFilePlacedEventHandler(
             self.on_pdf_placed, server_mode=(str(type(obs)) == "<class 'watchdog.observers.inotify.InotifyObserver'>"))
-        obs.schedule(event_handler, os.path.abspath(self.cache_dir), recursive=False)
+        obs.schedule(event_handler, os.path.abspath(self.paper_dir), recursive=False)
         obs.start()
         self.obs = obs
 

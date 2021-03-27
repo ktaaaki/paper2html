@@ -5,8 +5,8 @@ from flask import Flask, request, send_file
 from paper2html.local_paper_directory import LocalPaperDirectory
 
 
-def convert_service_run(host, port, watch, debug):
-    paper_dir = LocalPaperDirectory(watch, debug)
+def convert_service_run(host, port, paper_dirpath=None, watch=False, debug=False):
+    paper_dir = LocalPaperDirectory(paper_dirpath, watch, debug)
 
     app = Flask(__name__)
 
