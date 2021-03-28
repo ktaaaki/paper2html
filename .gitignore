@@ -1,2 +1,5 @@
+*.pdf
+!/tests/sample_files/*
+
 *.egg-info
 paper_cache
