@@ -1,0 +1,9 @@
+pdf2image
+pdfminer.six >= 20200726
+fire
+pillow
+Flask
+watchdog
+selenium
+chromedriver_binary
+pytest
