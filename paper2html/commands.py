@@ -1,4 +1,7 @@
 # -*- coding:utf-8 -*-
+# paper2html/paper2html/commands.py
+# This file is licensed under the GPLv2 or later (see LICENSE for details)
+# Copyright (C) 2021 ktaaaki
 import os
 from os.path import join as pjoin
 from shutil import rmtree

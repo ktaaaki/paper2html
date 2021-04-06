@@ -1,3 +1,7 @@
+# -*- coding:utf-8 -*-
+# paper2html/setup.py
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 ktaaaki
 import os
 from os.path import join as pjoin
 import re
@@ -21,12 +25,12 @@ setup(
     name='paper2html',
     description='PDF paper to html converter',
     version=get_version("paper2html", "__init__.py"),
-    license='AGPL',
+    license='GPLv3+',
     classifiers=[
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
-        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
         'Operating System :: Microsoft :: Windows :: Windows 10',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: POSIX :: Linux',

@@ -1,6 +1,6 @@
 # paper2html
 
-[![License: AGPL](https://img.shields.io/badge/license-AGPL-yellow)](https://opensource.org/licenses/AGPL-3.0)
+[![License: GPLv2+](https://img.shields.io/badge/license-GPLv2+-yellow)](https://opensource.org/licenses/GPL-2.0)
 [![Python Version](https://img.shields.io/badge/python-3.6|3.7|3.8|3.9-blue)](https://github.com/ktaaaki/paper2html)
 [![Platform](https://img.shields.io/badge/platform-windows|macos|linux-blue)](https://github.com/ktaaaki/paper2html)
 
@@ -89,7 +89,7 @@ $ python paper2html/commands.py "path-to-paper-file.pdf"
 
 In IPython, do it like this.
 
-```py
+```pycon
 >>> import paper2html
 >>> paper2html.open_paper_htmls("path-to-paper-file.pdf")
 ```
@@ -102,7 +102,28 @@ $ python paper2html/commands.py "path-to-paper-file.pdf" --browser_path="/path/t
 
 You can also only convert without opening a browser.
 
-```py
+```pycon
 >>> import paper2html
 >>> paper2html.paper2html("path-to-paper-file or directory")
 ```
+
+## External Libraries used by paper2html
+
+Thank to the following libraries used by paper2html.
+
+- Poppler is distributrd under the GPLv2+ license. (Copyright 2005-2020 [The Poppler Developers](http://poppler.freedesktop.org) &
+Copyright 1996-2011 Glyph & Cog, LLC)
+- Pdfminer.six is distributrd under the MIT license. (Copyright © 2004-2016  Yusuke Shinyama <yusuke at shinyama dot jp>)
+- pdf2image is distributrd under the MIT license. (Copyright © 2017 Edouard Belval)
+- pillow is distributed under the [PIL](https://github.com/python-pillow/Pillow/blob/master/LICENSE) license. (Copyright © 1997-2011 by Secret Labs AB & Copyright © 1995-2011 by Fredrik Lundh)
+- The license of matplotlib is based on the [PSF](https://docs.python.org/3/license.html) license. (Copyright © 2002 - 2012 John Hunter, Darren Dale, Eric Firing, Michael Droettboom and the Matplotlib development team; 2012 - 2021 The Matplotlib development team.)
+- Flask is licensed under the 3C BSD license. (Copyright © 2016, opentracing-contrib.)
+- Watchdog is licensed under the terms of the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0). (Copyright © 2011 Yesudeep Mangalapilly & Copyright 2012 Google, Inc & contributors.)
+- Python Fire is Licensed under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0). (Copyright © 2017 Google Inc. All rights reserved.)
+
+
+## License
+The entire source code of paper2html is compatible with the GPL v3 or later license. (see LICENSE for details)
+
+[comment]: <> (The website content is licensed under CC BY 4.0. &#40;see LICENSE&#41;.)
+[comment]: <> (Copyright &#40;C&#41; 2021 eitsupi)

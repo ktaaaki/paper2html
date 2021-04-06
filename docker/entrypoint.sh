@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# paper2html/docker/entrypoint.sh
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 eitsupi
+
 MOUNT_PATH=./paper_cache
 USER_NAME=paperuser
 

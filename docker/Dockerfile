@@ -1,3 +1,8 @@
+# -*- coding:utf-8 -*-
+# paper2html/docker/Dockerfile
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 eitsupi
+
 FROM python:slim
 
 LABEL org.opencontainers.image.source=https://github.com/ktaaaki/paper2html

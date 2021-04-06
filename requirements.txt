@@ -1,3 +1,7 @@
+# paper2html/requirements.txt
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 ktaaaki
+
 pdf2image==1.14.0
 pdfminer.six==20201018
 Flask==1.1.2
