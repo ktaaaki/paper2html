@@ -1,3 +1,7 @@
+//paper2html/paper2html/templates/two_panes_with_patch.js
+//This file is licensed under the MIT license (see LICENSE_MIT for details)
+//Copyright (C) 2021 ktaaaki
+
 const Zoom = function(rate) {
     for (let i = 0; i < document.images.length; i++) {
         document.images[i].width = document.images[i].naturalWidth * rate;

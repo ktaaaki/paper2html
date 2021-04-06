@@ -1,3 +1,7 @@
+# -*- coding:utf-8 -*-
+# paper2html/paper2html/main.py
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 ktaaaki
 import argparse
 from paper2html.convert_service import convert_service_run
 

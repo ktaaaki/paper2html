@@ -1,3 +1,7 @@
+# -*- coding:utf-8 -*-
+# paper2html/paper2html/html_paper.py
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 ktaaaki
 import re
 import os
 import math
