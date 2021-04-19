@@ -64,6 +64,7 @@ class HtmlPaper:
             output_filename = self.pdf_name + '_%d.html' % i
             output_path = pjoin(self.paper.output_dir, output_filename)
             with open(output_path, 'w', encoding="utf-8_sig") as f:
+                # TODO: ダウンロードリンクを設定するか，変換前ページを出力する
                 original_link = self.paper.output_dir + '.pdf'
                 # ページ切り替えをどうするか→上下の矩形に含まれるページを両方ズームで表示して並べる，矩形外はマスクせず重ねない
                 # slot: css_rel_path, title, original url, right pane, non_display_imgs, script
