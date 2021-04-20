@@ -97,8 +97,8 @@ function blend_trsf(trsf0, trsf1, delta_rate){
 
 function draw_paper(c, trsf, page_idx){
   const paper_img = paper_imgs[page_idx];
-  canvas.width = paper_img.width*3;
-  canvas.height = paper_img.height*3;
+  canvas.width = paper_img.width*3*trsf[0];
+  canvas.height = paper_img.height*3*trsf[0];
   leftw.scrollTo(trsf[0]*(paper_img.width-trsf[1]), trsf[0]*(paper_img.height-trsf[2]));
   c.fillStyle = "rgb(255, 255, 255)";
   c.fillRect(0, 0, canvas.width, canvas.height);
