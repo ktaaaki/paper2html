@@ -30,3 +30,5 @@ $ docker run --rm -it -p 5000:5000 -v ${PWD}:/tmp/paper_cache ghcr.io/ktaaaki/pa
 ```
 
 At present it only works on Linux (`ext4` volume).
+
+[comment]: <> (Copyright &#40;C&#41; 2021 eitsupi)

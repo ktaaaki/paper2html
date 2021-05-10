@@ -1,3 +1,6 @@
+# paper2html/.github/workflows/docker-publish.yml
+# This file is licensed under the MIT license (see LICENSE_MIT for details)
+# Copyright (C) 2021 eitsupi
 name: Build and push container
 
 on:

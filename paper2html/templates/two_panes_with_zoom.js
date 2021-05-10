@@ -1,3 +1,7 @@
+//paper2html/paper2html/templates/two_panes_with_zoom.js
+//This file is licensed under the MIT license (see LICENSE_MIT for details)
+//Copyright (C) 2021 ktaaaki
+
 // setup base elements
 const rightw = document.getElementById('right');
 const leftw = document.getElementById('left');
