@@ -39,7 +39,7 @@ setup(
         'pdf2image',
         'pdfminer.six >= 20200726',
         'fire',
-        'pillow >= 8.1.1',
+        'pillow',
         'Flask',
         'watchdog',
     ],
