@@ -10,8 +10,7 @@ RUN apt-get update \
 
 COPY . /tmp/paper2html/
 WORKDIR /tmp
-RUN python -m pip --no-cache-dir install -e paper2html \
-    && chmod +x ./paper2html/docker/entrypoint.sh ./paper2html/docker/start.sh
+RUN python -m pip --no-cache-dir install -e paper2html
 
 EXPOSE 5000
 
