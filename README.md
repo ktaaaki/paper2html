@@ -69,13 +69,13 @@ Download the zip file or use `git clone` command to save the paper2html code loc
 Upload a PDF file to the server by using this bookmarklet.
 
 ```js
-javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://127.0.0.1:5000/paper2html/convert?url='+esc(location.href)).document;
+javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html/convert?url='+esc(location.href)).document;
 ```
 
 Click on the bookmarklet when you open a PDF paper in your browser.  
 Then the conversion will start and the generated html will be opened after a while.
 
-You can see the list of converted documents in the index page `127.0.0.1:5000/paper2html/index.html`
+You can see the list of converted documents in the index page `localhost:5000/paper2html/index.html`
 
 NOTE👉 If you are running a paper2html server on Docker, you will not be able to convert PDF file on the host OS with the bookmarklet. See [docker image doc](docker/README.md).
 
