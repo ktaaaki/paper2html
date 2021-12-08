@@ -21,7 +21,7 @@ Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan viole
 ### Docker
 
 ```shell
-$ docker run --rm -it -p 5000:5000 ghcr.io/ktaaaki/paper2html
+$ docker run --rm -it -p 6003:6003 ghcr.io/ktaaaki/paper2html
 ```
 
 Use with care as it opens up the port.
@@ -69,13 +69,13 @@ Download the zip file or use `git clone` command to save the paper2html code loc
 Upload a PDF file to the server by using this bookmarklet.
 
 ```js
-javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:5000/paper2html/convert?url='+esc(location.href)).document;
+javascript:var esc=encodeURIComponent;var d=document;var subw=window.open('http://localhost:6003/paper2html/convert?url='+esc(location.href)).document;
 ```
 
 Click on the bookmarklet when you open a PDF paper in your browser.  
 Then the conversion will start and the generated html will be opened after a while.
 
-You can see the list of converted documents in the index page `localhost:5000/paper2html/index.html`
+You can see the list of converted documents in the index page `localhost:6003/paper2html/index.html`
 
 NOTE👉 If you are running a paper2html server on Docker, you will not be able to convert PDF file on the host OS with the bookmarklet. See [docker image doc](docker/README.md).
 

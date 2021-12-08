@@ -26,7 +26,7 @@ So, bind-mount `/etc/paper_cache` on the Docker host and put PDF files there.
 ```shell
 $ mkdir ~/paper_cache
 $ cd ~/paper_cache
-$ docker run --rm -it -p 5000:5000 -v ${PWD}:/tmp/paper_cache ghcr.io/ktaaaki/paper2html
+$ docker run --rm -it -p 6003:6003 -v ${PWD}:/tmp/paper_cache ghcr.io/ktaaaki/paper2html
 ```
 
 At present it only works on Linux (`ext4` volume).
