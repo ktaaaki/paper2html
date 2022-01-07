@@ -11,6 +11,8 @@ You can translate the paper easily by browser functions, and you can view the or
 
 Albanie, Samuel, Sébastien Ehrhardt, and Joao F. Henriques. "Stopping gan violence: Generative unadversarial networks." arXiv preprint arXiv:1703.02528 (2017).
 
+If you want to convert papers more accurately, you can also use [a good experimental service](https://papertohtml.org/) by Allen Institute for AI.
+
 ## Features
 
 - Convert PDF files on the Internet easily by using a bookmarklet.
