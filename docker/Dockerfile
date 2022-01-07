@@ -12,7 +12,7 @@ COPY . /tmp/paper2html/
 WORKDIR /tmp
 RUN python -m pip --no-cache-dir install -e paper2html
 
-EXPOSE 5000
+EXPOSE 6003
 
 ENTRYPOINT [ "./paper2html/docker/entrypoint.sh" ]
 
